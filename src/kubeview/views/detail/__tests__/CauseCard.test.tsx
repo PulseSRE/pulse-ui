@@ -18,7 +18,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { CauseCard } from '../CauseCard';
 import { useMonitorStore } from '../../../store/monitorStore';
 import { useFleetStore } from '../../../store/fleetStore';
-import { DIAGNOSE_POLL_MS } from '../useDiagnose';
+import { DIAGNOSE_POLL_MS, DIAGNOSE_WINDOW_MS } from '../useDiagnose';
 
 const match = { kind: 'Pod', name: 'api-x', namespace: 'payments', owner: { kind: 'Deployment', name: 'api' } };
 
@@ -120,6 +120,8 @@ describe('no finding', () => {
     expect((await screen.findByTestId('diagnose-run')).textContent).toMatch(/^Queued for investigation/);
     const [, init] = calls('POST', /\/api\/agent\/inbox$/)[0];
     expect(JSON.parse(String(init!.body))).toMatchObject({ namespace: 'payments', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }] });
+    // Nothing on the page says what kind of problem it is: no hint.
+    expect(JSON.parse(String(init!.body)).metadata).toEqual({ source: 'detail_page_diagnose' });
     await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
     expect(screen.getByTestId('diagnose-run').textContent).toMatch(/^Queued for investigation/);
     await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
@@ -376,6 +378,78 @@ describe('no finding', () => {
     useMonitorStore.setState({ findings: [finding({ resources: [{ kind: 'Pod', name: 'api-x', namespace: 'other' }] }), finding({ id: 'f3', resources: [{ kind: 'Pod', name: 'api-x' }] })] as never });
     renderCard();
     expect(screen.getByText('No open monitor finding for this pod.')).toBeDefined();
+  });
+  describe('category hint (the agent runs the matching plan template)', () => {
+    const bodyOfCreate = () => JSON.parse(String(calls('POST', /\/api\/agent\/inbox$/)[0][1]!.body));
+    const startRoutes = (startedReply: Reply = started('queued')) => [emptyInbox, created, [/inbox\/it-1\/investigate$/, 'POST', startedReply] as [RegExp, string, Reply], [/inbox\/it-1\/investigation$/, 'GET', pending('queued')] as [RegExp, string, Reply]];
+    const renderWith = (inferred?: 'crashloop' | 'oom' | 'image_pull' | 'scheduling' | 'nodes') =>
+      render(<MemoryRouter><CauseCard match={match} noun="pod" inferredCategory={inferred} /></MemoryRouter>);
+
+    it('sends what the pod shows', async () => {
+      routes = startRoutes();
+      renderWith('image_pull');
+      fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+      await screen.findByTestId('diagnose-run');
+      expect(bodyOfCreate().metadata).toEqual({ source: 'detail_page_diagnose', category_hint: 'image_pull' });
+    });
+
+    it('an open finding\'s category wins over what the pod shows', async () => {
+      useMonitorStore.setState({ findings: [finding({ category: 'oom' })] as never });
+      routes = startRoutes();
+      renderWith('crashloop');
+      fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+      await screen.findByTestId('diagnose-run');
+      expect(bodyOfCreate().metadata.category_hint).toBe('oom');
+    });
+
+    it('a finding category with no plan (alerts) falls back to the pod\'s; neither → no hint', async () => {
+      useMonitorStore.setState({ findings: [finding({ category: 'alerts' })] as never });
+      routes = startRoutes();
+      const { unmount } = renderWith('crashloop');
+      fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+      await screen.findByTestId('diagnose-run');
+      expect(bodyOfCreate().metadata.category_hint).toBe('crashloop');
+      unmount();
+      (global.fetch as unknown as { mockClear: () => void }).mockClear();
+      renderWith(undefined);
+      fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+      await screen.findByTestId('diagnose-run');
+      expect(bodyOfCreate().metadata).not.toHaveProperty('category_hint');
+    });
+
+    it('a reused item is not re-created, so no hint is sent', async () => {
+      routes = [
+        [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'it-1', status: 'new', claimed_by: null, resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: {} }], groups: [], stats: {}, total: 1 } }],
+        [/inbox\/it-1\/investigate$/, 'POST', started('queued')],
+      ];
+      renderWith('crashloop');
+      fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+      await screen.findByTestId('diagnose-run');
+      expect(calls('POST', /\/api\/agent\/inbox$/)).toHaveLength(0);
+    });
+
+    it('waits for a plan\'s own budget when the agent reports one', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      routes = startRoutes({ status: 202, body: { ok: true, ...runOf('queued', { strategy: 'plan', plan_id: 'crashloop-resolution-v1', timeout_seconds: 1200 }), status: 'queued' } });
+      renderWith('crashloop');
+      fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+      await screen.findByTestId('diagnose-run');
+      await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_WINDOW_MS + DIAGNOSE_POLL_MS); });
+      expect(screen.getByTestId('diagnose-run')).toBeDefined();
+      // 1200s budget + 2 min to save = 22 minutes.
+      await act(async () => { await vi.advanceTimersByTimeAsync(12 * 60_000 + DIAGNOSE_POLL_MS); });
+      expect(screen.getByTestId('diagnose-timeout').textContent).toMatch(/^No report after 22 minutes/);
+    });
+
+    it('an agent that reports no budget (older agent) keeps the 10-minute window', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      routes = startRoutes();
+      renderWith('crashloop');
+      fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+      await screen.findByTestId('diagnose-run');
+      await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_WINDOW_MS + DIAGNOSE_POLL_MS); });
+      expect(screen.getByTestId('diagnose-timeout').textContent).toMatch(/^No report after 10 minutes/);
+    });
   });
 });
 
