@@ -506,6 +506,9 @@ const customDomain: ReadinessGate = {
   }),
 };
 
+/** The platform Alertmanager's configuration (receivers and routes). */
+export const ALERTMANAGER_CONFIG_PATH = '/r/v1~secrets/openshift-monitoring/alertmanager-main';
+
 const notificationRouting: ReadinessGate = {
   id: 'notification-routing',
   title: 'Alert Notification Routing',
@@ -529,8 +532,11 @@ const notificationRouting: ReadinessGate = {
       return {
         status: nonDefault.length > 0 ? 'passed' : 'needs_attention',
         detail: nonDefault.length > 0 ? `${nonDefault.length} receiver${nonDefault.length !== 1 ? 's' : ''} configured` : 'Only default receiver — alerts are not routed to any team',
-        fixGuidance: 'Configure Alertmanager receivers (PagerDuty, Slack, email) to route alerts to your team.',
-        action: { label: 'View Alerts', path: '/alerts?tab=silences' },
+        // Routing lives in the alertmanager.yaml key of this Secret; Pulse has
+        // no receiver/route editor, and Silences only mute alerts, so the
+        // action opens the config where receivers are actually added.
+        fixGuidance: 'Add receivers (PagerDuty, Slack, email) and a route to them in the alertmanager.yaml key of Secret alertmanager-main in openshift-monitoring.',
+        action: { label: 'Edit Alertmanager config', path: ALERTMANAGER_CONFIG_PATH },
       };
     } catch (err) {
       // Could not check — say why (forbidden, proxy missing, …), never a verdict.

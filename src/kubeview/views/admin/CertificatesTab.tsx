@@ -15,6 +15,11 @@ import { safeQuery } from '../../engine/safeQuery';
 import { useCanI } from '../../hooks/useCanI';
 import { usePinnedAction } from '../../hooks/usePinnedAction';
 import { useUIStore } from '../../store/uiStore';
+import { AskPulsePrompts } from '../../components/agent/AskPulseButton';
+import { clusterTopicContext, usePageChatContext } from '../detail/AskPulseCard';
+
+/** Questions typed into the dock on this tab are about TLS certificates. */
+export const CERTIFICATES_CONTEXT = clusterTopicContext('TLS certificates');
 
 // --- Types ---
 
@@ -109,6 +114,7 @@ function formatDate(d: Date | null): string {
 
 export function CertificatesTab({ go }: { go: (path: string, title: string) => void }) {
   const clusterId = useActiveClusterId();
+  usePageChatContext(CERTIFICATES_CONTEXT);
   // `?filter=expiring&system=1` is how the Overview opens this tab, so the
   // list shows exactly what its "N certs expiring" count counted.
   const [searchParams] = useSearchParams();
@@ -291,6 +297,12 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
           <div className="text-xs text-faint mt-0.5">certificate could not be read</div>
         </button>
       </MetricGrid>
+
+      <AskPulsePrompts
+        suffix="about this cluster's certificates"
+        context={CERTIFICATES_CONTEXT}
+        prompts={['Which certificates expire soon, and who uses them?', 'How do I rotate an expiring certificate?', 'Which routes serve an expired or invalid certificate?']}
+      />
 
       {/* Search, filters, toggle */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">

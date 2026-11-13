@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils';
 import type { K8sResource } from '../../engine/renderers';
 import type { Event, Container, ContainerPort, ContainerStatus, Pod } from '../../engine/types';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
-import { AskPulsePrompts } from '../../components/agent/AskPulseButton';
 import { Card } from '../../components/primitives/Card';
 import { LabelsSection, AnnotationsSection, DetailSection } from './MetadataSections';
 import type { MetadataTarget } from './MetadataSections';
@@ -19,7 +18,9 @@ import { jsonToYaml } from '../../engine/yamlUtils';
 import type { RelatedResource } from './types';
 import { isReplicatedWorkload } from './workloadKinds';
 import { JobRuns } from './JobRuns';
-import { usePageChatContext } from './AskPulseCard';
+import { AskPulseCard, usePageChatContext } from './AskPulseCard';
+import { CauseCard, useCauseFinding, type CauseMatch } from './CauseCard';
+import { askPulsePromptsFor } from './askPulsePrompts';
 import { formatTimestamp } from '../../engine/format';
 
 const AmbientInsight = lazy(() => import('../../components/agent/AmbientInsight').then(m => ({ default: m.AmbientInsight })));
@@ -59,13 +60,27 @@ export function GenericDetailLayout({
   // When the data was last saved from this page: the "Used by" section then
   // offers to restart the consumers that keep the old values.
   const [savedAt, setSavedAt] = React.useState<number | undefined>(undefined);
-  // Questions typed into the Pulse AI dock on a workload page are about it.
-  usePageChatContext(isWorkload && namespace ? { kind: resource.kind, name: resource.metadata.name, namespace, gvr: gvrKey } : null);
+  // Questions typed into the Pulse AI dock on this page are about this
+  // resource, whatever its kind: a ConfigMap, an HPA, or a cluster-scoped
+  // Node or ClusterOperator (no namespace).
+  const context = React.useMemo(
+    () => ({ kind: resource.kind, name: resource.metadata.name, namespace: namespace || undefined, gvr: gvrKey }),
+    [resource.kind, resource.metadata.name, namespace, gvrKey],
+  );
+  usePageChatContext(context);
+  const podNames = React.useMemo(() => managedPods.map((p) => p.metadata.name), [managedPods]);
+  const causeMatch: CauseMatch = { kind: resource.kind, name: resource.metadata.name, namespace: namespace ?? '', podNames };
+  // The Cause card only when the monitor has an open finding about it: an
+  // empty "Diagnose" card on every ConfigMap would be noise.
+  const finding = useCauseFinding(causeMatch);
+  const prompts = askPulsePromptsFor(resource.kind, isWorkload);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Left column - Details */}
       <div className="lg:col-span-2 space-y-6">
+        {finding && <CauseCard match={causeMatch} noun={resource.kind} />}
+
         {/* Metadata */}
         <Card>
           <div className="px-4 py-3 border-b border-slate-800">
@@ -164,37 +179,29 @@ export function GenericDetailLayout({
         {/* Workload Health Audit (replicas, strategy, probes: not a Job's concerns) */}
         {isReplicatedWorkload(resource.kind) && <WorkloadAudit resource={resource} go={go} />}
 
-        {/* AI Insight + Inline Agent for pods and workloads */}
+        {/* AI Insight for pods and workloads */}
         {(resource.kind === 'Pod' || isWorkload) && namespace && (
-          <>
-            <ErrorBoundary fallbackTitle="AI insight unavailable">
-              <Suspense fallback={
-                <div className="animate-pulse space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4">
-                  <div className="h-4 w-32 bg-slate-800 rounded-sm" />
-                  <div className="h-3 w-full bg-slate-800 rounded-sm" />
-                  <div className="h-3 w-3/4 bg-slate-800 rounded-sm" />
-                </div>
-              }>
-                <AmbientInsight
-                  context={{ kind: resource.kind, name: resource.metadata.name, namespace }}
-                  prompt={`Analyze this ${resource.kind} "${resource.metadata.name}" in namespace "${namespace}". If unhealthy, explain the root cause and give a specific fix command. If healthy, say so in one sentence. Do not list the resource name or namespace back to me.`}
-                  trigger="manual"
-                />
-              </Suspense>
-            </ErrorBoundary>
-            {/* Suggested questions, not a second chat.
-                This embedded an InlineAgent, so a detail page showed its own
-                message box while the Pulse AI sidebar sat open beside it with
-                another — two conversations about the same resource, each with
-                its own connection state. The suggestions were the useful part;
-                the second input was not. */}
-            <AskPulsePrompts
-              suffix={`about this ${resource.kind.toLowerCase()}`}
-              prompts={[`Why is this ${resource.kind} unhealthy?`, 'What changed recently?', 'How can I optimize this?']}
-              context={{ kind: resource.kind, name: resource.metadata.name, namespace, gvr: gvrKey }}
-            />
-          </>
+          <ErrorBoundary fallbackTitle="AI insight unavailable">
+            <Suspense fallback={
+              <div className="animate-pulse space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4">
+                <div className="h-4 w-32 bg-slate-800 rounded-sm" />
+                <div className="h-3 w-full bg-slate-800 rounded-sm" />
+                <div className="h-3 w-3/4 bg-slate-800 rounded-sm" />
+              </div>
+            }>
+              <AmbientInsight
+                context={{ kind: resource.kind, name: resource.metadata.name, namespace }}
+                prompt={`Analyze this ${resource.kind} "${resource.metadata.name}" in namespace "${namespace}". If unhealthy, explain the root cause and give a specific fix command. If healthy, say so in one sentence. Do not list the resource name or namespace back to me.`}
+                trigger="manual"
+              />
+            </Suspense>
+          </ErrorBoundary>
         )}
+
+        {/* Ask Pulse about this resource, any kind: a question box plus the
+            questions people most often have about this kind. Suggestions,
+            not a second chat: the answer opens in the Pulse AI panel. */}
+        <AskPulseCard context={context} noun={resource.kind} placeholder={prompts[0]} prompts={prompts} />
 
         {/* Quick event count for non-pod/workload resources */}
         {resource.kind !== 'Pod' && !isWorkload && events.length > 0 && (

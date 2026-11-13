@@ -28,6 +28,7 @@ const SEVERITY_RANK: Record<string, number> = { critical: 3, warning: 2, info: 1
 export interface CauseMatch {
   kind: string;
   name: string;
+  /** '' for a cluster-scoped resource (Node, PersistentVolume, ClusterOperator). */
   namespace: string;
   /** The workload that owns the resource (pod page). */
   owner?: { kind: string; name: string };
@@ -40,8 +41,11 @@ export function findingFor(findings: Finding[], dismissed: string[], m: CauseMat
   const pods = new Set(m.podNames ?? []);
   const hit = findings.filter((f) => !dismissed.includes(f.id) && f.category !== 'degraded' && f.resources.some((r) => {
     // Namespaced kinds must be in this namespace (a missing namespace is not a match).
+    // A cluster-scoped page (Node, ClusterOperator) has namespace '', which
+    // matches a ref with no namespace; a kind the registry does not know is
+    // treated as namespaced, so that comparison decides it too.
     const namespaced = resolveKind(r.kind).namespaced ?? true;
-    if (namespaced && r.namespace !== m.namespace) return false;
+    if (namespaced && (r.namespace ?? '') !== (m.namespace ?? '')) return false;
     if (r.kind === m.kind && r.name === m.name) return true;
     if (m.owner && r.kind === m.owner.kind && r.name === m.owner.name) return true;
     if (m.owner && r.ownerKind === m.owner.kind && r.ownerName === m.owner.name) return true;
@@ -50,6 +54,28 @@ export function findingFor(findings: Finding[], dismissed: string[], m: CauseMat
   }));
   hit.sort((a, b) => (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0) || b.timestamp - a.timestamp);
   return hit[0] ?? null;
+}
+
+/**
+ * The open finding for `match` in the local monitor's findings, or null (also
+ * on a remote cluster, whose findings the monitor does not see). For pages
+ * that show the Cause card only when there is something to show.
+ */
+export function useCauseFinding(match: CauseMatch): Finding | null {
+  const remote = useFleetStore((s) => s.activeClusterId) !== LOCAL_CLUSTER_ID;
+  const findings = useMonitorStore((s) => s.findings);
+  const dismissed = useMonitorStore((s) => s.dismissedFindingIds);
+  const podKey = (match.podNames ?? []).join(',');
+  return React.useMemo(
+    () => (remote ? null : findingFor(findings, dismissed, match)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [remote, findings, dismissed, match.kind, match.name, match.namespace, match.owner?.kind, match.owner?.name, podKey],
+  );
+}
+
+/** "Node worker-1" or "Pod shop/web-1". */
+export function resourceLabel(t: { kind: string; name: string; namespace?: string }): string {
+  return `${t.kind} ${t.namespace ? `${t.namespace}/` : ''}${t.name}`;
 }
 
 function hhmm(ms: number | undefined): string {
@@ -147,18 +173,11 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
   const clusterId = useFleetStore((s) => s.activeClusterId);
   const connected = useMonitorStore((s) => s.connected);
   const connectionError = useMonitorStore((s) => s.connectionError);
-  const findings = useMonitorStore((s) => s.findings);
-  const dismissed = useMonitorStore((s) => s.dismissedFindingIds);
   const investigations = useMonitorStore((s) => s.investigations);
   const target: DiagnoseTarget = { kind: match.kind, name: match.name, namespace: match.namespace };
   const remote = clusterId !== LOCAL_CLUSTER_ID;
   const { state, run } = useDiagnose(target, { remote });
-  const podKey = (match.podNames ?? []).join(',');
-  const finding = React.useMemo(
-    () => (remote ? null : findingFor(findings, dismissed, match)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [remote, findings, dismissed, match.kind, match.name, match.namespace, match.owner?.kind, match.owner?.name, podKey],
-  );
+  const finding = useCauseFinding(match);
   const investigation = React.useMemo(
     () => (finding ? investigations.filter((i) => i.findingId === finding.id).sort((a, b) => b.timestamp - a.timestamp)[0] : undefined),
     [finding, investigations],
@@ -274,7 +293,7 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
       {state.phase === 'timeout' && (
         <p className="text-sm text-slate-300">
           No report after 10 minutes; the investigation may still finish. The item stays open in the{' '}
-          <Link to="/inbox" className="text-blue-400 hover:underline">Inbox</Link> (Diagnose {match.kind} {match.namespace}/{match.name}).
+          <Link to="/inbox" className="text-blue-400 hover:underline">Inbox</Link> (Diagnose {resourceLabel(match)}).
         </p>
       )}
       {state.phase === 'unreachable' && (

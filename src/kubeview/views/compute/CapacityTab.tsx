@@ -13,10 +13,16 @@ import { useCapacityProjections, type Lookback } from './useCapacityProjections'
 import { ExhaustionCard } from './ExhaustionCard';
 import { RemoteMetricsNotice } from '../../components/metrics/RemoteMetricsNotice';
 import { useMetricsAvailable } from '../../hooks/useClusterBase';
+import { AskPulsePrompts } from '../../components/agent/AskPulseButton';
+import { clusterTopicContext, usePageChatContext } from '../detail/AskPulseCard';
+
+/** Questions typed into the dock on this tab are about capacity. */
+export const CAPACITY_CONTEXT = clusterTopicContext('capacity');
 
 const LOOKBACK_OPTIONS: Lookback[] = ['7d', '30d', '90d'];
 
 export function CapacityTab() {
+  usePageChatContext(CAPACITY_CONTEXT);
   // Projections come from Prometheus, which Pulse reaches for the local cluster only.
   const metricsAvailable = useMetricsAvailable();
   if (!metricsAvailable) return <RemoteMetricsNotice what="Capacity projections" />;
@@ -76,6 +82,12 @@ function LocalCapacityTab() {
           </span>
         </div>
       )}
+
+      <AskPulsePrompts
+        suffix="about this cluster's capacity"
+        context={CAPACITY_CONTEXT}
+        prompts={['What runs out first, and when?', 'Which workloads drive the growth?', 'How many nodes do I need for the next 90 days?']}
+      />
 
       {/* Exhaustion cards */}
       {isLoading ? (

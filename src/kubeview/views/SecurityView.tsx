@@ -25,7 +25,24 @@ import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from 
 import { createTemplateUrl } from '../engine/createTemplates';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 import { useNamespaceScope } from '../hooks/useNamespaceScope';
-import { AskPulsePrompts } from '../components/agent/AskPulseButton';
+import { AskPulseButton, AskPulsePrompts } from '../components/agent/AskPulseButton';
+import { clusterTopicContext, usePageChatContext } from './detail/AskPulseCard';
+import { useTrustStore } from '../store/trustStore';
+
+/** The page's chat context: questions typed into the dock here are about security. */
+export const SECURITY_CONTEXT = clusterTopicContext('security posture');
+
+/**
+ * "Ask Pulse to fix" for one failed audit check: names the check (id and
+ * label) and what it found. In Observe mode the agent cannot write, so the
+ * entry is "Ask Pulse why" and asks for the change to make instead.
+ */
+export function securityFixPrompt(check: { id: string; label: string; detail: string }, observe: boolean): string {
+  const what = `The security audit check "${check.label}" (id ${check.id}) failed: ${check.detail}.`;
+  return observe
+    ? `${what} Explain why it fails and what to change to make it pass, as YAML or oc commands. Observe mode is on, so do not make any change.`
+    : `${what} Fix it: show the exact change and ask me before applying it.`;
+}
 
 interface SecurityAuditCheck {
   id: string;
@@ -44,6 +61,8 @@ interface SecurityAuditCheck {
 export default function SecurityView() {
   // Not scoped by namespace: the picker says "All namespaces on this page".
   useNamespaceScope({ applies: false });
+  usePageChatContext(SECURITY_CONTEXT);
+  const observe = useTrustStore((s) => s.trustLevel === 0);
   const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
@@ -288,6 +307,7 @@ export default function SecurityView() {
         <AskPulsePrompts
           suffix="about this cluster's security"
           prompts={['Run a full security audit', 'Scan pods for security issues', 'Check RBAC risks', 'Find unprotected namespaces', 'Audit secret rotation']}
+          context={SECURITY_CONTEXT}
         />
 
         {crbLoading && clusterRoleBindings.length === 0 && (
@@ -343,6 +363,14 @@ export default function SecurityView() {
                   <div className="text-sm text-slate-200">{check.label}</div>
                   <div className="text-xs text-slate-400 mt-0.5">{check.detail}</div>
                 </div>
+                {check.pass === false && !check.pending && (
+                  <AskPulseButton
+                    suffix={observe ? 'why' : 'to fix'}
+                    prompt={() => securityFixPrompt(check, observe)}
+                    context={SECURITY_CONTEXT}
+                    aria-label={`Ask Pulse ${observe ? 'why' : 'to fix'}: ${check.label}`}
+                  />
+                )}
                 {check.link && (
                   <button onClick={() => go(check.link!, check.linkTitle || '')}
                     className="text-xs text-blue-400 hover:text-blue-300 shrink-0 flex items-center gap-1">

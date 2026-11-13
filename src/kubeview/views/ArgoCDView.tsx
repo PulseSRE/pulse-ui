@@ -28,6 +28,11 @@ import { DriftTab } from './argocd/DriftTab';
 import { ProjectsTab } from './argocd/ProjectsTab';
 import { RolloutsTab } from './argocd/RolloutsTab';
 import { useNamespaceScope } from '../hooks/useNamespaceScope';
+import { AskPulsePrompts } from '../components/agent/AskPulseButton';
+import { clusterTopicContext, usePageChatContext } from './detail/AskPulseCard';
+
+/** Questions typed into the dock on this page are about the Argo CD applications. */
+export const GITOPS_CONTEXT = clusterTopicContext('Argo CD applications');
 
 type Tab = 'applications' | 'history' | 'drift' | 'projects' | 'rollouts';
 const ARGO_TABS: readonly Tab[] = ['applications', 'history', 'drift', 'projects', 'rollouts'];
@@ -35,6 +40,7 @@ const ARGO_TABS: readonly Tab[] = ['applications', 'history', 'drift', 'projects
 export default function ArgoCDView() {
   // Not scoped by namespace: the picker says "All namespaces on this page".
   useNamespaceScope({ applies: false });
+  usePageChatContext(GITOPS_CONTEXT);
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
   const { available, detecting, applications, applicationsLoading, namespace } = useArgoCD();
@@ -230,6 +236,12 @@ export default function ArgoCDView() {
             <StatCard label="Degraded / Missing" value={applicationsError ? '—' : degradedCount} variant={degradedCount > 0 ? 'error' : 'default'} highlight={degradedCount > 0} />
           </button>
         </MetricGrid>
+
+        <AskPulsePrompts
+          suffix="about this cluster's GitOps"
+          context={GITOPS_CONTEXT}
+          prompts={['Why are applications out of sync?', 'Which applications are degraded, and why?', 'What changed in the last sync?']}
+        />
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)}>

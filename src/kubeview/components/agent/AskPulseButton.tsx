@@ -95,25 +95,42 @@ export function AskPulsePrompts({ prompts, context, suffix, headingLevel = 2, cl
         <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
         {askPulseLabel(suffix)}
       </Heading>
-      <div className="flex flex-wrap gap-2">
-        {prompts.map((item) => {
-          const p = typeof item === 'string' ? item : item.text;
-          const ctx = typeof item === 'string' ? context : item.context ?? context;
-          return (
-          <button
-            key={p}
-            type="button"
-            disabled={remote}
-            title={remote ? PULSE_AI_LOCAL_ONLY : undefined}
-            onClick={() => { if (!remote) askPulse(p, ctx); }}
-            className={cn('rounded-full border px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50', AI_ACCENT.border, AI_ACCENT.text, AI_ACCENT.bgHover)}
-          >
-            {p}
-          </button>
-          );
-        })}
-      </div>
+      <AskPulseChips prompts={prompts} context={context} />
       {remote && <p className="mt-2 text-xs text-slate-400">{PULSE_AI_LOCAL_ONLY}</p>}
     </section>
+  );
+}
+
+/**
+ * The suggested-question chips alone, for a card that already has its own
+ * "Ask Pulse" heading (the detail page's question box). Disabled on a remote
+ * cluster; the caller shows the shared wording.
+ */
+export function AskPulseChips({ prompts, context, className }: {
+  prompts: Array<string | { text: string; context?: ResourceContext }>;
+  context?: ResourceContext;
+  className?: string;
+}) {
+  const remote = useIsRemoteCluster();
+  if (prompts.length === 0) return null;
+  return (
+    <div className={cn('flex flex-wrap gap-2', className)}>
+      {prompts.map((item) => {
+        const p = typeof item === 'string' ? item : item.text;
+        const ctx = typeof item === 'string' ? context : item.context ?? context;
+        return (
+        <button
+          key={p}
+          type="button"
+          disabled={remote}
+          title={remote ? PULSE_AI_LOCAL_ONLY : undefined}
+          onClick={() => { if (!remote) askPulse(p, ctx); }}
+          className={cn('rounded-full border px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50', AI_ACCENT.border, AI_ACCENT.text, AI_ACCENT.bgHover)}
+        >
+          {p}
+        </button>
+        );
+      })}
+    </div>
   );
 }

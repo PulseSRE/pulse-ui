@@ -45,7 +45,8 @@ describe('SecurityView', () => {
       renderWithClient(<SecurityView />);
       expect(screen.getByRole('heading', { name: "Ask Pulse about this cluster's security" })).toBeDefined();
       fireEvent.click(screen.getByRole('button', { name: 'Check RBAC risks' }));
-      expect(askPulse).toHaveBeenCalledWith('Check RBAC risks', undefined);
+      // The chip carries the page's context: the cluster's security posture.
+      expect(askPulse).toHaveBeenCalledWith('Check RBAC risks', { kind: 'Cluster', name: 'security posture' });
     });
 
     it('disables the chips on a remote cluster with the shared wording', async () => {
@@ -55,7 +56,8 @@ describe('SecurityView', () => {
       renderWithClient(<SecurityView />);
       const chip = screen.getByRole('button', { name: 'Check RBAC risks' }) as HTMLButtonElement;
       expect(chip.disabled).toBe(true);
-      expect(screen.getByText('Pulse AI answers about the local cluster only.')).toBeDefined();
+      // Shown under the chips (and announced for each disabled row button).
+      expect(screen.getAllByText('Pulse AI answers about the local cluster only.').length).toBeGreaterThan(0);
       fireEvent.click(chip);
       expect(askPulse).not.toHaveBeenCalled();
     });

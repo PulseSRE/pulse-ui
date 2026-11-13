@@ -21,6 +21,25 @@ import { assertActiveCluster } from '../engine/pendingCluster';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { InstallOperatorForm } from './operators/InstallOperatorForm';
 import { ManageSubscription } from './operators/ManageSubscription';
+import { AskPulsePrompts } from '../components/agent/AskPulseButton';
+import { usePageChatContext } from './detail/AskPulseCard';
+import type { ResourceContext } from '../engine/agentClient';
+
+/**
+ * What the selected operator's page is about, for Pulse AI: its Subscription
+ * once installed (the object OLM upgrades and whose InstallPlans wait for
+ * approval), else the catalog's PackageManifest. Null in the catalog list.
+ */
+export function operatorChatContext(
+  pkg: { name: string; namespace?: string } | null,
+  sub: { metadata?: { name?: string; namespace?: string } } | null | undefined,
+): ResourceContext | null {
+  if (!pkg) return null;
+  if (sub?.metadata?.name && sub.metadata.namespace) {
+    return { kind: 'Subscription', name: sub.metadata.name, namespace: sub.metadata.namespace, gvr: 'operators.coreos.com/v1alpha1/subscriptions' };
+  }
+  return { kind: 'PackageManifest', name: pkg.name, namespace: pkg.namespace || 'openshift-marketplace', gvr: 'packages.operators.coreos.com/v1/packagemanifests' };
+}
 
 interface PackageManifest {
   metadata: { name: string; namespace?: string };
@@ -486,6 +505,15 @@ export default function OperatorCatalogView() {
     refetchInterval: 15000,
   });
 
+  const chatContext = operatorChatContext(
+    selectedOp ? { name: selectedOp.metadata.name, namespace: selectedOp.metadata.namespace } : null,
+    selectedSub,
+  );
+  usePageChatContext(chatContext);
+  const pendingPlan = installPlan && installPlan.spec?.approved === false && installPlan.metadata?.name && installPlan.metadata?.namespace
+    ? { name: installPlan.metadata.name as string, namespace: installPlan.metadata.namespace as string }
+    : null;
+
   // Detail view
   if (selectedOp) {
     const desc = selectedOp.status.channels?.find(c => c.name === selectedOp.status.defaultChannel)?.currentCSVDesc
@@ -527,6 +555,20 @@ export default function OperatorCatalogView() {
           <Card className="p-4">
             <p className="text-sm text-slate-300 whitespace-pre-line">{desc?.description || 'No description available.'}</p>
           </Card>
+
+          {chatContext && (
+            <AskPulsePrompts
+              suffix="about this operator"
+              context={chatContext}
+              prompts={isInstalled
+                ? [
+                  'Is this operator healthy?',
+                  "What's blocking its upgrade?",
+                  ...(pendingPlan ? [{ text: 'What does this InstallPlan change?', context: { kind: 'InstallPlan', name: pendingPlan.name, namespace: pendingPlan.namespace, gvr: 'operators.coreos.com/v1alpha1/installplans' } }] : []),
+                ]
+                : ['What does installing this operator change?', 'Which install mode and channel should I pick?']}
+            />
+          )}
 
           {/* Install form */}
           {!isInstalled && (
