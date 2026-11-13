@@ -95,12 +95,12 @@ describe('OverviewTab', () => {
 describe('OverviewTab links', () => {
   afterEach(() => { cleanup(); });
 
-  it('"N auto-fixed" opens the agent-cleared inbox, not needs-attention', async () => {
+  it('"N applied" opens the applied fixes, not needs-attention', async () => {
     const api = await import('../../../engine/analyticsApi');
     vi.mocked(api.fetchFixHistorySummary).mockResolvedValueOnce({ total_actions: 4, completed: 4, failed: 0, rolled_back: 0 } as never);
     await renderTab();
-    const link = (await screen.findByText(/4 auto-fixed/)).closest('a')!;
-    expect(link.getAttribute('href')).toBe('/inbox?preset=agent_cleared');
+    const link = (await screen.findByText(/4 applied/)).closest('a')!;
+    expect(link.getAttribute('href')).toBe('/inbox?tab=activity&fixStatus=completed');
   });
 
   it('maps legacy /incidents activity links to the Inbox activity tab and refuses unknown ones', async () => {
@@ -206,5 +206,51 @@ describe('OverviewTab fix outcomes and an empty activity feed (live cluster: 216
     await renderTab();
     expect(await screen.findByText('The activity feed is empty.')).toBeDefined();
     expect(document.body.textContent).not.toMatch(/needed to intervene/);
+  });
+});
+
+describe('OverviewTab with both fix-history summary shapes (pulse-agent#258)', () => {
+  afterEach(() => { cleanup(); });
+
+  it('new shape (applied_rate present): applied, verified as held, failed', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchFixHistorySummary).mockResolvedValueOnce({
+      total_actions: 439, completed: 216, failed: 223, rolled_back: 0, success_rate: 0.1, applied_rate: 0.49,
+      verification: { resolved: 44, still_failing: 100, improved: 2, pending: 70, resolution_rate: 0.2 },
+    } as never);
+    await renderTab();
+    expect((await screen.findByTestId('fixes-applied')).textContent).toBe('216 applied');
+    expect(screen.getByTestId('fixes-verified').textContent).toBe(' (44 verified as held)');
+    expect(screen.getByTestId('fixes-failed').textContent).toBe('223 failed');
+    expect(document.body.textContent).not.toMatch(/need attention|auto-fixed/);
+  });
+
+  it('old shape (no applied_rate): applied and failed only, no verified claim', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchFixHistorySummary).mockResolvedValueOnce({
+      total_actions: 439, completed: 216, failed: 223, rolled_back: 0, success_rate: 0.49,
+      verification: { resolved: 44, still_failing: 100, improved: 2, pending: 70, resolution_rate: 0.2 },
+    } as never);
+    await renderTab();
+    expect((await screen.findByTestId('fixes-applied')).textContent).toBe('216 applied');
+    expect(screen.queryByTestId('fixes-verified')).toBeNull();
+    expect(screen.getByTestId('fixes-failed').textContent).toBe('223 failed');
+    expect(document.body.textContent).not.toMatch(/need attention/);
+  });
+
+  it('colours the new verification events from /activity (pulse-agent#259)', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchAgentActivity).mockResolvedValueOnce({
+      period_days: 7,
+      events: [
+        { type: 'fix_verified', description: 'web held', link: '/inbox?tab=activity' },
+        { type: 'fix_not_held', description: 'db did not hold', link: '/inbox?tab=activity' },
+        { type: 'fix_unverifiable', description: 'cache unclear', link: '/inbox?tab=activity' },
+      ],
+    } as never);
+    await renderTab();
+    expect((await screen.findByText('web held')).closest('a')!.className).toMatch(/emerald/);
+    expect(screen.getByText('db did not hold').closest('a')!.className).toMatch(/red/);
+    expect(screen.getByText('cache unclear').closest('a')!.className).toMatch(/slate/);
   });
 });

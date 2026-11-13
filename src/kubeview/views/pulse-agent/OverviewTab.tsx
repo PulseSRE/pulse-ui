@@ -11,6 +11,7 @@ import {
   fetchAgentVersion,
   fetchAgentActivity,
   type ActivityEvent,
+  type FixHistorySummary,
 } from '../../engine/analyticsApi';
 import { fetchFixHistory, actionCategoryLabel, type ActionRecord } from '../../engine/fixHistory';
 import { TrustPolicy } from '../mission-control/TrustPolicy';
@@ -68,6 +69,7 @@ export function OverviewTab() {
           scannerCount={scannerCount}
           totalFixes={totalFixes}
           fixedCount={fixQ.data?.completed ?? 0}
+          verifiedHeld={fixQ.data ? verifiedHeldOf(fixQ.data) : null}
           failedCount={fixQ.data?.failed ?? 0}
           rolledBackCount={fixQ.data?.rolled_back ?? 0}
           onScannerClick={() => setScannerDrawerOpen(true)}
@@ -122,16 +124,33 @@ export function OverviewTab() {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * Fixes verification saw hold, or null for an agent before pulse-agent#258.
+ * From #258 (`applied_rate` present) the summary's success figures count
+ * verified-held fixes (`verification.resolved`) and `completed` is "applied"
+ * (the write was accepted, held or not). Older agents fall back to
+ * applied / failed only.
+ */
+export function verifiedHeldOf(summary: FixHistorySummary): number | null {
+  if (summary.applied_rate === undefined) return null;
+  const resolved = summary.verification?.resolved;
+  return typeof resolved === 'number' ? resolved : null;
+}
+
 /** Inbox › Activity filtered to fixes with this status. */
 export const fixActivityLink = (status?: 'failed' | 'rolled_back' | 'completed') =>
   status ? `/inbox?tab=activity&fixStatus=${status}` : '/inbox?tab=activity';
 
 function StatusSentence({
-  isDegraded, loading, unreadable, onRetry, scannerCount, totalFixes, fixedCount, failedCount, rolledBackCount, onScannerClick,
+  isDegraded, loading, unreadable, onRetry, scannerCount, totalFixes, fixedCount, verifiedHeld, failedCount, rolledBackCount, onScannerClick,
 }: {
   isDegraded: boolean; loading: boolean; unreadable: string[]; onRetry: () => void;
   scannerCount: number; totalFixes: number;
-  fixedCount: number; failedCount: number; rolledBackCount: number; onScannerClick: () => void;
+  /** Applied fixes (`completed`): the write went through, held or not. */
+  fixedCount: number;
+  /** Applied fixes verification saw hold; null when the agent does not report it. */
+  verifiedHeld: number | null;
+  failedCount: number; rolledBackCount: number; onScannerClick: () => void;
 }) {
   if (isDegraded) {
     return (
@@ -155,7 +174,16 @@ function StatusSentence({
     // Each outcome by its real name: a failed fix is "failed", not "needs
     // attention" (which reads as open findings), and links to those fixes.
     const parts: React.ReactNode[] = [];
-    if (fixedCount > 0) parts.push(<Link key="ok" to="/inbox?preset=agent_cleared" className="text-emerald-400 hover:underline">{fixedCount} auto-fixed</Link>);
+    // "Applied" is what `completed` means: the write was accepted. Whether the
+    // fix held is verification's answer, shown beside it when the agent gives it.
+    if (fixedCount > 0) {
+      parts.push(
+        <React.Fragment key="ok">
+          <Link to={fixActivityLink('completed')} className="text-emerald-400 hover:underline" data-testid="fixes-applied">{fixedCount} applied</Link>
+          {verifiedHeld !== null && <span data-testid="fixes-verified"> ({verifiedHeld} verified as held)</span>}
+        </React.Fragment>,
+      );
+    }
     if (failedCount > 0) parts.push(<Link key="failed" to={fixActivityLink('failed')} className="text-red-400 hover:underline" data-testid="fixes-failed">{failedCount} failed</Link>);
     if (rolledBackCount > 0) parts.push(<Link key="rb" to={fixActivityLink('rolled_back')} className="text-amber-400 hover:underline">{rolledBackCount} rolled back</Link>);
     return (
@@ -180,6 +208,11 @@ function StatusSentence({
 
 const EVENT_COLORS: Record<string, string> = {
   auto_fix: 'text-emerald-400',
+  // Verification outcomes (pulse-agent#259).
+  fix_verified: 'text-emerald-400',
+  fix_not_held: 'text-red-400',
+  fix_improved: 'text-blue-400',
+  fix_unverifiable: 'text-slate-400',
   fix_failed: 'text-red-400',
   rollback: 'text-amber-400',
   self_healed: 'text-blue-400',
