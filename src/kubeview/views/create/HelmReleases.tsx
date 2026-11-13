@@ -87,7 +87,12 @@ function statusVariant(status: string): 'success' | 'warning' | 'error' | 'info'
 
 const LINK_ACTIONS = new Set(['values', 'rollback', 'uninstall']);
 
-export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefined; charts: ChartSource[] }) {
+export function HelmReleases({ nsFilter, charts, chartsPending = false }: {
+  nsFilter: string | undefined;
+  charts: ChartSource[];
+  /** The repository indexes are still loading, so whether a chart is in one is not known yet. */
+  chartsPending?: boolean;
+}) {
   // A link from a Helm-owned resource (`?release=&releaseNs=&action=`) opens
   // this list on that release's namespace and, with an action, its dialog.
   const [params, setParams] = useSearchParams();
@@ -168,7 +173,7 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
       ) : (
         <div className="divide-y divide-slate-800">
           {releases.map((r) => (
-            <ReleaseRow key={`${r.namespace}/${r.name}`} release={r} charts={charts} highlighted={r === linked}
+            <ReleaseRow key={`${r.namespace}/${r.name}`} release={r} charts={charts} chartsPending={chartsPending} highlighted={r === linked}
               onValues={() => setValuesFor(r)}
               onAction={(kind) => action.open({ kind, release: r } as ReleaseAction)} />
           ))}
@@ -213,10 +218,11 @@ function repoCandidates(charts: ChartSource[], release: HelmReleaseSummary): Cha
   return charts.filter((c) => c.name === release.chart && !!c.repoUrl);
 }
 
-function ReleaseRow({ release, charts, onValues, onAction, highlighted }: {
+function ReleaseRow({ release, charts, chartsPending, onValues, onAction, highlighted }: {
   release: HelmReleaseSummary;
   highlighted?: boolean;
   charts: ChartSource[];
+  chartsPending: boolean;
   onValues: () => void;
   onAction: (kind: ReleaseAction['kind']) => void;
 }) {
@@ -226,7 +232,9 @@ function ReleaseRow({ release, charts, onValues, onAction, highlighted }: {
   const { allowed: canCreateSecrets } = useCanI('create', '', 'secrets', release.namespace);
   const valuesDenied = denied ?? (canCreateSecrets ? undefined : `You do not have permission to create Secrets in ${release.namespace}`);
   const candidates = repoCandidates(charts, release);
-  const noRepo = candidates.length === 0
+  const noRepo = chartsPending
+    ? 'Checking the configured chart repositories for this chart…'
+    : candidates.length === 0
     ? `Upgrading to another chart version needs the chart's repository: ${release.chart ?? 'this chart'} is not in any configured chart repository. Edit values still works with the installed chart.`
     : undefined;
   const newest = candidates.length === 1 ? candidates[0].versions[0] : undefined;
@@ -243,7 +251,9 @@ function ReleaseRow({ release, charts, onValues, onAction, highlighted }: {
           <span className="flex items-center gap-1"><Folder className="w-3 h-3" />{release.namespace}</span>
           {release.chart && <span>chart {release.chart}{release.chartVersion ? ` ${release.chartVersion}` : ''}</span>}
           {release.appVersion && <span className="text-faint">app {release.appVersion}</span>}
-          {noRepo && <span className="text-faint" data-testid={`helm-no-repo-${release.name}`}>No chart repository configured for upgrades</span>}
+          {chartsPending
+            ? <span className="text-faint" data-testid={`helm-repo-pending-${release.name}`}>Checking chart repositories…</span>
+            : noRepo && <span className="text-faint" data-testid={`helm-no-repo-${release.name}`} title={noRepo}>{release.chart ? `Chart ${release.chart}` : 'This chart'} not found in the configured repositories, so it cannot be upgraded from here</span>}
         </div>
       </div>
       <div className="flex items-center gap-1.5">

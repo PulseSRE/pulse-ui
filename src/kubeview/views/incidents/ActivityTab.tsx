@@ -11,6 +11,7 @@ import {
   Search, Info, Bot, Sparkles, Clock, ArrowRight,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
 import { LoadError } from '../../components/primitives/LoadError';
@@ -32,6 +33,8 @@ import { HistoryEntryCard } from './shared/HistoryEntryCard';
 import { InvestigationCard } from './shared/InvestigationCard';
 import { PostmortemCard, type Postmortem } from './shared/PostmortemCard';
 import { IncidentLifecycleDrawer } from './IncidentLifecycleDrawer';
+
+const FIX_STATUS_LABELS: Record<string, string> = { failed: 'failed', rolled_back: 'rolled back', completed: 'completed' };
 
 async function fetchPostmortems(): Promise<{ postmortems: Postmortem[]; total: number }> {
   const res = await agentFetch('/api/agent/postmortems');
@@ -56,7 +59,21 @@ export function ActivityTab() {
   const fixHistoryError = useMonitorStore((s) => s.fixHistoryError);
   const findings = useMonitorStore((s) => s.findings);
 
-  useEffect(() => { loadFixHistory(); }, [loadFixHistory]);
+  // `?fixStatus=failed` (linked from the agent Overview's "N failed") lists
+  // only fixes with that status, filtered by the agent.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawFixStatus = searchParams.get('fixStatus');
+  const fixStatus = rawFixStatus && FIX_STATUS_LABELS[rawFixStatus] ? rawFixStatus : null;
+  useEffect(() => {
+    loadFixHistory(1, fixStatus ? { status: fixStatus } : undefined);
+    // Leave the shared store unfiltered for other views.
+    return () => { if (fixStatus) loadFixHistory(); };
+  }, [loadFixHistory, fixStatus]);
+  const clearFixStatus = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('fixStatus');
+    setSearchParams(next, { replace: true });
+  };
 
   const { data: postmortemData, isError: postmortemsFailed, error: postmortemsError, refetch: refetchPostmortems } = useQuery({
     queryKey: ['postmortems'],
@@ -276,6 +293,12 @@ export function ActivityTab() {
         {fixHistoryError
           ? <span data-unknown>— agent actions</span>
           : <span>{mergedEntries.length} agent action{mergedEntries.length !== 1 ? 's' : ''}</span>}
+        {fixStatus && (
+          <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-sm bg-slate-800 text-slate-300" data-testid="fix-status-filter">
+            Showing {FIX_STATUS_LABELS[fixStatus]} fixes only
+            <button onClick={clearFixStatus} className="text-blue-400 hover:text-blue-300">Show all</button>
+          </span>
+        )}
       </div>
 
       {fixHistoryError && (
@@ -287,7 +310,7 @@ export function ActivityTab() {
         fixHistoryError ? null : <EmptyState
           icon={<Info className="w-8 h-8" />}
           title="No agent actions"
-          description={searchQuery ? 'No agent actions match your search.' : 'Fixes the agent applies, or you approve in chat, appear here.'}
+          description={searchQuery ? 'No agent actions match your search.' : fixStatus ? `No ${FIX_STATUS_LABELS[fixStatus]} fixes.` : 'Fixes the agent applies, or you approve in chat, appear here.'}
         />
       ) : (
         <div className="space-y-6">
