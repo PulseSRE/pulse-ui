@@ -7,7 +7,7 @@ import { LoadError } from '../../components/primitives/LoadError';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { TONE_CLASSES } from '../../engine/statusColors';
 import { listK8s, readK8s, type ReadResult } from '../../engine/readResult';
-import { k8sPatch } from '../../engine/query';
+import { k8sFetch, k8sPatch } from '../../engine/query';
 import { assertActiveCluster, clusterDisplayName } from '../../engine/pendingCluster';
 import { gvrKey } from '../../engine/discovery';
 import { useFleetStore } from '../../store/fleetStore';
@@ -21,6 +21,18 @@ import {
 import { formatCount } from '../../engine/format';
 
 /** The reads behind the removed-API check, for the active cluster. Never throws: each read is a ReadResult. */
+/** `/version` gitVersion, or null when it could not be read. */
+export async function readKubeVersion(clusterId: string): Promise<string | null> {
+  try {
+    const res = await k8sFetch(clusterId, '/version');
+    if (!res.ok) return null;
+    const v = (await res.json())?.gitVersion;
+    return typeof v === 'string' && v ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useApiRemovalReads() {
   const clusterId = useFleetStore((s) => s.activeClusterId);
   const opts = { staleTime: 60_000, retry: false } as const;
@@ -39,11 +51,19 @@ export function useApiRemovalReads() {
     queryFn: () => readK8s<ConfigMap>(ADMIN_ACKS_PATH, clusterId),
     ...opts,
   });
-  const loading = !arcs.data || !gates.data || !acks.data;
+  // The running Kubernetes version: the target's Kubernetes minor is derived
+  // from it (OpenShift 5.x has no fixed table). null when it could not be read.
+  const kubeVersion = useQuery({
+    queryKey: ['upgrade-api-removals', clusterId, 'kube-version'],
+    queryFn: () => readKubeVersion(clusterId),
+    ...opts,
+  });
+  const loading = !arcs.data || !gates.data || !acks.data || kubeVersion.isPending;
   const reads: Omit<ApiRemovalInputs, 'clusterVersion' | 'targetVersion'> | null = loading ? null : {
     apiRequestCounts: arcs.data as ReadResult<APIRequestCount[]>,
     adminGates: gates.data as ReadResult<ConfigMap>,
     adminAcks: acks.data as ReadResult<ConfigMap>,
+    currentKubeVersion: kubeVersion.data ?? null,
   };
   const times = [arcs.dataUpdatedAt, gates.dataUpdatedAt, acks.dataUpdatedAt];
   return {

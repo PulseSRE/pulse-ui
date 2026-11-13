@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  compareVersions, durationMinutes, lastCompletedDuration, minorOf,
+  compareVersions, durationMinutes, isUpdateInFlight, lastCompletedDuration, minorOf,
   type UpgradeModel, type UpgradeTarget,
 } from '../../engine/upgradeGraph';
 import { formatTimestamp } from '../../engine/format';
@@ -66,7 +66,12 @@ interface Placed {
   y: number;
   kind: 'history' | 'current' | 'desired' | 'target';
   target?: UpgradeTarget;
+  /** For a target beyond the first target column: the y of the lane above the rows its edge runs along, so it does not cross the nearer targets. */
+  lane?: number;
 }
+
+/** Vertical space per lane above the rows, for edges that skip a column. */
+const LANE_H = 7;
 
 function layout(model: UpgradeModel) {
   const current = model.current.version;
@@ -89,8 +94,13 @@ function layout(model: UpgradeModel) {
   const minors = [...byMinor.keys()].sort((a, b) => compareVersions(`${a}.0`, `${b}.0`));
   for (const m of minors) byMinor.get(m)!.sort((a, b) => compareVersions(b.version, a.version));
   const maxRows = Math.max(1, ...minors.map((m) => byMinor.get(m)!.length));
-  const height = PAD * 2 + maxRows * ROW_H;
-  const midY = PAD + ((maxRows - 1) * ROW_H) / 2;
+  // An edge to the second (third…) minor column would run straight through the
+  // targets of the columns before it, which sit on the same rows (5.0.1 → 5.1.0
+  // drawn through 5.0.2). Those edges run along their own lane above the rows.
+  const lanes = Math.max(0, minors.length - 1);
+  const laneSpace = lanes ? lanes * LANE_H + PAD / 2 : 0;
+  const height = PAD * 2 + laneSpace + maxRows * ROW_H;
+  const midY = PAD + laneSpace + ((maxRows - 1) * ROW_H) / 2;
 
   const placed: Placed[] = [];
   let col = 0;
@@ -105,12 +115,14 @@ function layout(model: UpgradeModel) {
     sourceNode = { key: 'desired', version: from, x: PAD + col++ * COL_W, y: midY, kind: 'desired' };
     placed.push(sourceNode);
   }
-  for (const m of minors) {
+  minors.forEach((m, k) => {
     const items = byMinor.get(m)!;
-    const top = PAD + ((maxRows - items.length) * ROW_H) / 2;
-    items.forEach((t, i) => placed.push({ key: `t-${t.version}`, version: t.version, x: PAD + col * COL_W, y: top + i * ROW_H, kind: 'target', target: t }));
+    const top = PAD + laneSpace + ((maxRows - items.length) * ROW_H) / 2;
+    // The farthest column takes the topmost lane, so lanes never cross each other.
+    const lane = k > 0 ? PAD / 2 + (lanes - k) * LANE_H : undefined;
+    items.forEach((t, i) => placed.push({ key: `t-${t.version}`, version: t.version, x: PAD + col * COL_W, y: top + i * ROW_H, kind: 'target', target: t, lane }));
     col++;
-  }
+  });
   const width = PAD * 2 + (col - 1) * COL_W + NODE_W;
   return { placed, currentNode, sourceNode, width, height, minors };
 }
@@ -120,6 +132,12 @@ function edgePath(from: Placed, to: Placed): string {
   const y1 = from.y + NODE_H / 2;
   const x2 = to.x;
   const y2 = to.y + NODE_H / 2;
+  if (to.lane !== undefined && to.kind === 'target' && from.kind !== 'target') {
+    // Up into the lane in the gap after the source, along it, and down in the gap before the target.
+    const gap = (COL_W - NODE_W) / 2;
+    const ly = to.lane;
+    return `M ${x1} ${y1} C ${x1 + gap} ${y1}, ${x1 + gap / 2} ${ly}, ${x1 + gap} ${ly} L ${x2 - gap} ${ly} C ${x2 - gap / 2} ${ly}, ${x2 - gap} ${y2}, ${x2} ${y2}`;
+  }
   const dx = (x2 - x1) / 2;
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
@@ -159,7 +177,7 @@ export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason,
   const { placed, currentNode, sourceNode, width, height } = React.useMemo(() => layout(model), [model]);
   const [selected, setSelected] = React.useState<string | null>(null);
   const selectedTarget = model.nodes.find((n) => n.version === selected) || null;
-  const inFlightVersion = model.progress.phase !== 'idle' && model.desired?.version && model.desired.version !== model.current.version
+  const inFlightVersion = isUpdateInFlight(model.progress.phase) && model.desired?.version && model.desired.version !== model.current.version
     ? model.desired.version : null;
   const sourceIsDesired = sourceNode !== currentNode;
   const last = lastCompletedDuration(model.history);
@@ -295,7 +313,10 @@ export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason,
         {model.nodes.length === 0 && !updatesUnknownReason && (
           <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-800 text-xs text-slate-400">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-            Cluster is up to date{model.current.channel ? ` on ${model.current.channel}` : ''}
+            <span>
+              Cluster is up to date{model.current.channel ? ` on ${model.current.channel}` : ''}
+              {model.progress.phase === 'degraded' && <span className="text-amber-300" data-testid="up-to-date-but-failing">: no newer release is offered, but ClusterVersion reports Failing (see below)</span>}
+            </span>
           </div>
         )}
       </div>
@@ -333,7 +354,10 @@ function TargetPanel({ target, current, blockerMessage, lastDuration, onUpdate, 
   warning?: React.ReactNode;
 }) {
   const st = STATE_STYLE[target.state];
-  const minorJump = parseInt(target.version.split('.')[1] || '0', 10) - parseInt(current.split('.')[1] || '0', 10);
+  // Minors skipped within one major; across a major (4.x → 5.y) the count is not meaningful.
+  const [tMaj, tMin] = target.version.split('.').map((p) => parseInt(p, 10) || 0);
+  const [cMaj, cMin] = current.split('.').map((p) => parseInt(p, 10) || 0);
+  const minorJump = tMaj === cMaj ? tMin - cMin : 0;
   const disabledReason = target.state === 'blocked'
     ? `Blocked: minor-version updates are not allowed while the cluster reports Upgradeable=False${blockerMessage ? ` (${blockerMessage})` : ''}.`
     : !target.image ? 'The update service gave no release image for this version.' : updateDisabledReason;
@@ -404,15 +428,32 @@ function ProgressSection({ model, onNavigate, renderPoolAction }: { model: Upgra
   const p = model.progress;
   const target = model.desired?.version || '';
   const failing = p.phase === 'failing';
+  const degraded = p.phase === 'degraded';
+  const degradedOps = p.clusterOperators?.degraded.length ?? 0;
+  const degradedNames = p.clusterOperators?.degraded ?? [];
+  const because = degradedOps === 0
+    ? (p.failingReason ? ` (${p.failingReason})` : '')
+    : degradedOps <= 3
+      ? ` because ${degradedNames.join(', ')} ${degradedOps === 1 ? 'is' : 'are'} Degraded`
+      : ` because ${degradedOps} operators are Degraded`;
+  // ClusterVersion really says Failing=True here; the title says so, without
+  // implying the update is still running or that it failed.
+  const title = degraded
+    ? `Update${p.completedVersion ? ` to ${p.completedVersion}` : ''} completed — cluster reports Failing${because}`
+    : failing ? `Update${target ? ` to ${target}` : ''} failing` : `Updating to ${target || 'the new release'}`;
   return (
-    <section aria-label="Update progress" className={cn('rounded-lg border p-4 space-y-4', failing ? 'border-red-900 bg-red-950/20' : 'border-blue-900/60 bg-blue-950/10')}>
+    <section aria-label={degraded ? 'Cluster health after update' : 'Update progress'} data-phase={p.phase}
+      className={cn('rounded-lg border p-4 space-y-4', failing ? 'border-red-900 bg-red-950/20' : degraded ? 'border-amber-900/60 bg-amber-950/10' : 'border-blue-900/60 bg-blue-950/10')}>
       <div className="flex items-start gap-2">
-        {failing ? <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> : <Loader2 className="w-4 h-4 text-blue-400 animate-spin mt-0.5 shrink-0" />}
+        {failing ? <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+          : degraded ? <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+          : <Loader2 className="w-4 h-4 text-blue-400 animate-spin mt-0.5 shrink-0" />}
         <div className="min-w-0 flex-1">
-          <div className={cn('text-sm font-medium', failing ? 'text-red-300' : 'text-blue-300')}>
-            {failing ? 'Update failing' : `Updating to ${target || 'the new release'}`}
+          <div className={cn('text-sm font-medium', failing ? 'text-red-300' : degraded ? 'text-amber-300' : 'text-blue-300')} data-testid="update-progress-title">
+            {title}
           </div>
-          {p.message && <p className="text-xs text-slate-400 mt-0.5">{p.message}</p>}
+          {degraded && <p className="text-xs text-slate-400 mt-0.5">The update finished (history: Completed) and nothing is being applied. ClusterVersion reports Failing=True{p.failingReason ? ` (${p.failingReason})` : ''} for the cluster&apos;s current health; it clears when the degraded operator recovers. No update action is needed.</p>}
+          {p.message && <p className="text-xs text-slate-400 mt-0.5 break-words">{p.message}</p>}
         </div>
       </div>
 
@@ -471,7 +512,11 @@ function ProgressSection({ model, onNavigate, renderPoolAction }: { model: Upgra
         </p>
       )}
 
-      {model.blockers.length > 0 && <Blockers model={model} onNavigate={onNavigate} />}
+      {/* After a completed update the Failing message is already the detail above; list only the other blockers. */}
+      {(() => {
+        const shown = degraded ? model.blockers.filter((b) => b.type !== 'failing') : model.blockers;
+        return shown.length > 0 ? <Blockers model={{ ...model, blockers: shown }} onNavigate={onNavigate} /> : null;
+      })()}
     </section>
   );
 }
@@ -499,7 +544,7 @@ function HistoryTimeline({ model }: { model: UpgradeModel }) {
   const entries = model.history.slice(0, 10);
   const durations = entries.map((h) => durationMinutes(h.startedTime, h.completionTime));
   const max = Math.max(1, ...durations.map((d) => d ?? 0));
-  const inFlight = model.progress.phase !== 'idle';
+  const inFlight = isUpdateInFlight(model.progress.phase);
   return (
     <section aria-label="Update history" className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
       <h3 className="text-sm font-medium text-slate-200 mb-3">Update History</h3>

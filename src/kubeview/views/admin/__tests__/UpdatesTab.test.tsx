@@ -658,12 +658,30 @@ describe('UpdatesTab', () => {
       expect((screen.getByRole('button', { name: 'Update to 4.16.10' }) as HTMLButtonElement).disabled).toBe(true);
     });
 
-    it('shows Failing with its message', () => {
+    it('after a completed update, Failing=True reads as the cluster reporting Failing, not a failing update', () => {
       const cv = idleClusterVersion();
-      cv.status!.conditions!.push({ type: 'Failing', status: 'True', message: 'Cluster operator etcd is degraded' });
-      renderGraph(cv);
-      expect(screen.getByText('Update failing')).toBeDefined();
+      cv.status!.conditions!.push({ type: 'Failing', status: 'True', reason: 'ClusterOperatorDegraded', message: 'Cluster operator etcd is degraded' });
+      const etcd = { apiVersion: 'config.openshift.io/v1', kind: 'ClusterOperator', metadata: { name: 'etcd', uid: 'co-etcd' }, status: { versions: [{ name: 'operator', version: '4.16.3' }], conditions: [{ type: 'Degraded', status: 'True' }] } } as never;
+      renderGraph(cv, { operators: [etcd] });
+      expect(screen.getByTestId('update-progress-title').textContent).toBe('Update to 4.16.3 completed \u2014 cluster reports Failing because etcd is Degraded');
+      expect(screen.queryByText(/Update failing|Update to .* failing|Updating to/)).toBeNull();
       expect(screen.getAllByText(/Cluster operator etcd is degraded/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/history: Completed\) and nothing is being applied/).textContent).toMatch(/ClusterOperatorDegraded/);
+      // The "up to date" line no longer contradicts the panel.
+      cleanup();
+      const none = idleClusterVersion();
+      none.status!.availableUpdates = [];
+      none.status!.conditionalUpdates = [];
+      none.status!.conditions!.push({ type: 'Failing', status: 'True', reason: 'ClusterOperatorDegraded', message: 'Cluster operator etcd is degraded' });
+      renderGraph(none, { operators: [etcd] });
+      expect(screen.getByTestId('up-to-date-but-failing').textContent).toMatch(/reports Failing/);
+    });
+
+    it('during an update, Failing=True is a failing update', () => {
+      const cv = inFlightClusterVersion();
+      cv.status!.conditions!.push({ type: 'Failing', status: 'True', reason: 'ClusterOperatorDegraded', message: 'Cluster operator network is degraded' });
+      renderGraph(cv, { isUpdating: true });
+      expect(screen.getByTestId('update-progress-title').textContent).toBe('Update to 4.16.8 failing');
     });
   });
 

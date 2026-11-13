@@ -112,6 +112,12 @@ export interface ApiRemovalInputs {
   adminAcks: ReadResult<ConfigMap>;
   /** A target version or minor ("4.19" or "4.19.3"); defaults to `defaultTargetMinor` (lowest offered newer minor, else current + 1). */
   targetVersion?: string;
+  /**
+   * The cluster's running Kubernetes version (`/version` gitVersion, e.g.
+   * "v1.33.4"). The target's Kubernetes minor is derived from it; without it
+   * only the OpenShift 4.N → 1.(N+13) table is known. null = could not be read.
+   */
+  currentKubeVersion?: string | null;
 }
 
 type Minor = { major: number; minor: number };
@@ -123,11 +129,29 @@ export function parseMinor(version: string | undefined | null): Minor | null {
 
 const fmt = (m: Minor) => `${m.major}.${m.minor}`;
 
-/** OpenShift 4.N ships Kubernetes 1.(N+13): 4.16→1.29, 4.19→1.32. */
+/** OpenShift 4.N ships Kubernetes 1.(N+13): 4.16→1.29, 4.19→1.32. Fallback only: unknown for any other major. */
 export function kubeMinorForOcp(ocp: string): string | null {
   const m = parseMinor(ocp);
   if (!m || m.major !== 4) return null;
   return `1.${m.minor + 13}`;
+}
+
+/**
+ * The Kubernetes minor a target OpenShift minor ships, from the cluster's own
+ * running Kubernetes version: each OpenShift minor within a major moves
+ * Kubernetes one minor, so target kube = running kube + (target OCP minor −
+ * running OCP minor). This works for any OpenShift major (5.x included); the
+ * 4.N table is used only when the running Kubernetes version is not known, and
+ * nothing is guessed across an OpenShift major.
+ */
+export function targetKubeMinor(currentOcp: string, targetOcp: string, currentKube?: string | null): { current: string | null; target: string | null } {
+  const cur = parseMinor(currentOcp);
+  const tgt = parseMinor(targetOcp);
+  const kube = parseMinor(currentKube);
+  if (cur && tgt && kube && tgt.major === cur.major) {
+    return { current: fmt(kube), target: fmt({ major: kube.major, minor: kube.minor + (tgt.minor - cur.minor) }) };
+  }
+  return { current: kubeMinorForOcp(currentOcp), target: kubeMinorForOcp(targetOcp) };
 }
 
 /** The installed version: the latest completed history entry, else the desired version. */
@@ -282,7 +306,7 @@ function plural(n: number, one: string, many = `${one}s`) {
 }
 
 export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVerdict {
-  const { clusterVersion, apiRequestCounts, adminGates, adminAcks, targetVersion } = inputs;
+  const { clusterVersion, apiRequestCounts, adminGates, adminAcks, targetVersion, currentKubeVersion } = inputs;
   const current = currentClusterVersion(clusterVersion);
   const upgradeableBlocker = upgradeableBlockerOf(clusterVersion);
   const base: ApiRemovalVerdict = { status: 'unknown', reason: '', current, target: null, inUse: [], unused: [], gates: [], failures: [], upgradeableBlocker, targetNotOffered: false };
@@ -296,8 +320,13 @@ export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVe
     return { ...base, reason: `Could not check: ${targetVersion ?? 'the target'} is not a newer minor than ${fmt(cur)}.` };
   }
   const ocp = fmt(targetMinor);
-  const kube = kubeMinorForOcp(ocp);
-  if (!kube) return { ...base, reason: `Could not check: the Kubernetes version shipped with ${ocp} is not known.` };
+  const kubes = targetKubeMinor(fmt(cur), ocp, currentKubeVersion);
+  const kube = kubes.target;
+  if (!kube) {
+    return { ...base, reason: currentKubeVersion === null
+      ? `Could not check: the cluster's Kubernetes version could not be read (/version), so the Kubernetes version shipped with ${ocp} is not known.`
+      : `Could not check: the Kubernetes version shipped with ${ocp} is not known.` };
+  }
   const target = { ocp, kube };
   const targetNotOffered = !offeredMinors(clusterVersion).includes(ocp);
 
@@ -305,7 +334,7 @@ export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVe
   let inUse: RemovedApi[] = [];
   let unused: RemovedApi[] = [];
   if (apiRequestCounts.state === 'ok') {
-    ({ inUse, unused } = classifyRemovedApis(apiRequestCounts.data, kube, kubeMinorForOcp(fmt(cur))));
+    ({ inUse, unused } = classifyRemovedApis(apiRequestCounts.data, kube, kubes.current));
   } else if (apiRequestCounts.state === 'absent') {
     failures.push('APIRequestCount is not available on this cluster (it is an OpenShift API), so API usage could not be checked');
   } else {

@@ -11,7 +11,7 @@ import { Panel } from '../../components/primitives/Panel';
 import { describeWriteError } from '../../components/ActionDialog';
 import { UpgradeProgressPanel } from './UpgradeProgressPanel';
 import { UpgradeGraph } from '../../components/updates/UpgradeGraph';
-import { buildUpgradeModel, channelOptions, channelChangeImpact, minorOf, type UpgradeTarget } from '../../engine/upgradeGraph';
+import { buildUpgradeModel, isUpdateInFlight, channelOptions, channelChangeImpact, minorOf, type UpgradeTarget } from '../../engine/upgradeGraph';
 import { showErrorToast } from '../../engine/errorToast';
 import { getActiveClusterId, LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { assertActiveCluster } from '../../engine/pendingCluster';
@@ -533,7 +533,7 @@ export function UpdatesTab({
       </Panel>
 
       {/* Between updates the progress rows are not shown: pools are listed here so one can be paused before an update starts. */}
-      {model.progress.phase === 'idle' && machineConfigPools.length > 0 && (
+      {!isUpdateInFlight(model.progress.phase) && machineConfigPools.length > 0 && (
         <Panel title={`MachineConfigPools (${machineConfigPools.length})`} icon={<Server className="w-4 h-4 text-slate-400" />}>
           <ul className="divide-y divide-slate-800" aria-label="MachineConfigPools">
             {machineConfigPools.map((mcp) => {
@@ -597,7 +597,7 @@ export function UpdatesTab({
         <OperatorUpdateProgress operators={operators} pods={pods} podsError={podsError ? errorReason(podsError) : undefined} podsLoading={podsLoading} go={go} />
       )}
 
-      <UpdateHistoryTable history={model.history} log={log.entries} inFlight={model.progress.phase !== 'idle'} />
+      <UpdateHistoryTable history={model.history} log={log.entries} inFlight={isUpdateInFlight(model.progress.phase)} />
 
       {confirmDialog && (
         <ConfirmDialog
@@ -628,13 +628,16 @@ export function UpdatesTab({
           confirmLabel="Accept risks and update"
           variant="danger"
           confirmDisabled={!risksAccepted}
+          size="lg"
         >
-          <ul className="mt-3 space-y-1.5 max-h-48 overflow-auto" aria-label="Risks to accept">
+          {/* The dialog body scrolls and the buttons stay in view; long risk
+              names and issue URLs wrap instead of widening the list. */}
+          <ul className="mt-3 space-y-1.5" aria-label="Risks to accept" data-testid="risk-list">
             {riskDialog.target.risks.map((r) => (
-              <li key={r.name} className="text-xs rounded-sm bg-slate-900/60 border border-slate-700 p-2">
-                <span className="font-medium text-amber-300">{r.name}</span>
-                {r.message && <span className="block text-slate-400 mt-0.5 whitespace-pre-wrap">{r.message}</span>}
-                {r.url && <a href={r.url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300">{r.url}</a>}
+              <li key={r.name} className="text-xs rounded-sm bg-slate-900/60 border border-slate-700 p-2 min-w-0">
+                <span className="font-medium text-amber-300 break-words">{r.name}</span>
+                {r.message && <span className="block text-slate-400 mt-0.5 whitespace-pre-wrap break-words">{r.message}</span>}
+                {r.url && <a href={r.url} target="_blank" rel="noreferrer" className="block mt-0.5 text-blue-400 hover:text-blue-300 break-all">{r.url}</a>}
               </li>
             ))}
           </ul>

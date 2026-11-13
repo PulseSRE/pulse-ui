@@ -468,3 +468,16 @@ describe('estimateUpgradeEta', () => {
     expect(result.minutes).toBe(120);
   });
 });
+
+import { upgradeableReasonTitle } from '../upgradeHealth';
+
+describe('upgradeableReasonTitle', () => {
+  it('gives known reasons a sentence and splits any other CamelCase code into words', () => {
+    expect(upgradeableReasonTitle('AdminAckRequired')).toBe('An administrator acknowledgement is required');
+    expect(upgradeableReasonTitle('RiskNameNotCompatibleWithReasonProperty')).toBe('Risk name not compatible with reason property');
+    expect(upgradeableReasonTitle('ClusterOperatorsNotUpgradeable')).toBe('Cluster operators block minor updates');
+    expect(upgradeableReasonTitle('DNSOperatorNotReady')).toBe('DNS operator not ready');
+    expect(upgradeableReasonTitle(undefined)).toBe('No reason given');
+    expect(upgradeableReasonTitle('some reason: with text')).toBe('some reason: with text');
+  });
+});

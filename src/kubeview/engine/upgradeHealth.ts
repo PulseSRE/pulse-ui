@@ -309,6 +309,32 @@ export function getUpgradeableBlocker(clusterVersion: ClusterVersion | null | un
   };
 }
 
+const UPGRADEABLE_REASON_TITLES: Record<string, string> = {
+  AdminAckRequired: 'An administrator acknowledgement is required',
+  ClusterOperatorNotUpgradeable: 'A cluster operator blocks minor updates',
+  ClusterOperatorsNotUpgradeable: 'Cluster operators block minor updates',
+  ClusterVersionOverridesSet: 'ClusterVersion overrides are set',
+  MultipleReasons: 'Several conditions block minor updates',
+  UpdateInProgress: 'An update is in progress',
+  ResourceDeletesInProgress: 'Resource deletions are in progress',
+  DegradedPool: 'A MachineConfigPool is degraded',
+  PoolUpdating: 'A MachineConfigPool is updating',
+};
+
+/**
+ * A readable title for an Upgradeable=False reason code. Known codes get a
+ * sentence; any other CamelCase code is split into words
+ * ("RiskNameNotCompatibleWithReasonProperty" → "Risk name not compatible with
+ * reason property"). The code itself stays available as a detail.
+ */
+export function upgradeableReasonTitle(reason: string | undefined | null): string {
+  if (!reason) return 'No reason given';
+  if (UPGRADEABLE_REASON_TITLES[reason]) return UPGRADEABLE_REASON_TITLES[reason];
+  if (!/^[A-Za-z][A-Za-z0-9]*$/.test(reason)) return reason;
+  const words = reason.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').split(' ');
+  return words.map((w, i) => (i === 0 ? w : /^[A-Z0-9]+$/.test(w) && w.length > 1 ? w : w.toLowerCase())).join(' ');
+}
+
 // ---- Conditional update risks ----
 
 export interface ConditionalUpdateRisk {

@@ -13,7 +13,7 @@
 
 import type { ClusterOperator, ClusterVersion, Condition, ConfigMap, MachineConfigPool, Node, Pod } from './types';
 import { isNotFound, errorReason, type ReadResult } from './readResult';
-import { getBlockingPdbs, type BlockingPdb, type PdbLike } from './upgradeHealth';
+import { getBlockingPdbs, upgradeableReasonTitle, type BlockingPdb, type PdbLike } from './upgradeHealth';
 import { parseCertExpiry, type TlsSecretLike } from './certExpiry';
 import { isPending, type CertificateSigningRequest } from './csr';
 import { upgradeableBlockerOf, type APIRequestCount, type ApiRemovalVerdict, type RemovedApi } from './upgradeApiRemovals';
@@ -408,7 +408,7 @@ export function checkUpgradeable(clusterVersion: ClusterVersion | null | undefin
   const c = cond(clusterVersion?.status?.conditions as Condition[] | undefined, 'Upgradeable');
   if (c?.status === 'False' && c.reason === 'AdminAckRequired') return null;
   if (c?.status === 'False') {
-    return { id: 'upgradeable', label: 'Cluster upgradeable', status: 'blocker', detail: `The cluster reports Upgradeable=False (${c.reason || 'no reason'})${c.message ? `: ${c.message}` : ''}. Minor updates are refused until it clears.` };
+    return { id: 'upgradeable', label: 'Cluster upgradeable', status: 'blocker', detail: `${upgradeableReasonTitle(c.reason)} (Upgradeable=False${c.reason ? `, ${c.reason}` : ''})${c.message ? `: ${c.message.replace(/\.\s*$/, '')}` : ''}. Minor updates are refused until it clears.` };
   }
   return { id: 'upgradeable', label: 'Cluster upgradeable', status: 'passed', detail: 'The cluster does not report Upgradeable=False', summary: 'cluster upgradeable' };
 }
