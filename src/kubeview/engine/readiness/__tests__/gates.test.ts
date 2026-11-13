@@ -73,6 +73,21 @@ describe('notification-routing gate', () => {
     expect(result.fixGuidance).toContain('alertmanager.yaml');
   });
 
+  it('only the default receiver: the action opens the Alertmanager config, not Silences', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(JSON.stringify([{ name: 'Default' }, { name: 'null' }]), { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+
+    const result = await findGate('notification-routing').evaluate(makeCtx(vi.fn()));
+
+    expect(result.status).toBe('needs_attention');
+    // Silences mute alerts; they do not route them anywhere.
+    expect(result.action?.path).not.toContain('silences');
+    expect(result.action?.path).toBe('/r/v1~secrets/openshift-monitoring/alertmanager-main');
+    expect(result.action?.label).toBe('Edit Alertmanager config');
+    expect(result.fixGuidance).toContain('alertmanager.yaml');
+  });
+
   it('reports "Could not check" with the reason (not a verdict) when Alertmanager fails', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response('upstream down', { status: 502, statusText: 'Bad Gateway' }));
 
