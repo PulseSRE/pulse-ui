@@ -34,6 +34,7 @@ import type { ResourceContext } from '../../engine/agentClient';
 import { withFindingRef } from '../../engine/findingContext';
 import { AI_ACCENT } from '../../components/agent/aiTokens';
 import { cn } from '@/lib/utils';
+import { isSilenceable, SilenceButton } from './SilenceAction';
 
 /** Where an inbox item's resource opens: the cluster's ClusterVersion is managed on Admin › Updates. */
 function inboxResourceUrl(r: { kind: string; name: string; namespace?: string }): string {
@@ -736,6 +737,11 @@ export function TaskDetailDrawer({
 
         {/* Forward buttons — sticky footer so they're always visible */}
         <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-4 -mb-4 z-10">
+          {/* From a firing alert or a monitor finding: Pulse proposes the
+              narrowest silence and the chat confirmation card creates it. */}
+          {isSilenceable(item) && item.status !== 'resolved' && item.status !== 'archived' && (
+            <SilenceButton id={item.id} what="Inbox item" context={remote ? undefined : investigateContext(item)} onAsked={onClose} showReason />
+          )}
           {item.status === 'new' && (
             <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} localData />
           )}
