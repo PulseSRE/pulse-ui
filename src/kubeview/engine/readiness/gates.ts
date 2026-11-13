@@ -36,6 +36,7 @@ async function listItems<T = any>(ctx: GateContext, path: string): Promise<T[]> 
 }
 
 import { isSystemNamespace as isSystemNs } from '../namespace';
+import yaml from 'js-yaml';
 import { readAlertmanager } from '../silences';
 import { describeReadError } from '../readError';
 
@@ -509,10 +510,74 @@ const customDomain: ReadinessGate = {
 /** The platform Alertmanager's configuration (receivers and routes). */
 export const ALERTMANAGER_CONFIG_PATH = '/r/v1~secrets/openshift-monitoring/alertmanager-main';
 
+/**
+ * Receivers every OpenShift cluster starts with (`Default`, `Critical`,
+ * `Watchdog`; older releases also `null`), compared in lower case. Their
+ * names say nothing about whether anything is notified.
+ */
+const OPENSHIFT_DEFAULT_RECEIVERS = new Set(['default', 'critical', 'watchdog', 'null']);
+
+export interface RoutingConfig {
+  /** Receivers alerts are routed to (the root route and every sub-route) that have at least one integration. */
+  routedWithIntegrations: string[];
+}
+
+/**
+ * What Alertmanager's loaded configuration routes alerts to, from
+ * `GET /api/v2/status` (`config.original`, secrets shown as `<secret>`).
+ * A receiver counts when the route tree sends alerts to it and it has at
+ * least one integration (`slack_configs`, `pagerduty_configs`,
+ * `email_configs`, `webhook_configs`, …). Watchdog is left out: its
+ * integration, if any, is a dead man's switch, not a team. Null when the
+ * configuration cannot be read or parsed.
+ */
+export function routingFromConfig(original: unknown): RoutingConfig | null {
+  if (typeof original !== 'string' || !original.trim()) return null;
+  let doc: unknown;
+  try {
+    doc = yaml.load(original);
+  } catch {
+    return null;
+  }
+  if (!doc || typeof doc !== 'object') return null;
+  const cfg = doc as { receivers?: unknown; route?: unknown };
+  const integrations = new Map<string, number>();
+  for (const r of Array.isArray(cfg.receivers) ? cfg.receivers : []) {
+    if (!r || typeof r !== 'object' || typeof (r as { name?: unknown }).name !== 'string') continue;
+    let n = 0;
+    for (const [k, v] of Object.entries(r as Record<string, unknown>)) {
+      if (k.endsWith('_configs') && Array.isArray(v)) n += v.length;
+    }
+    integrations.set((r as { name: string }).name, n);
+  }
+  const routed = new Set<string>();
+  const walk = (route: unknown, depth: number) => {
+    if (!route || typeof route !== 'object' || depth > 20) return;
+    const rt = route as { receiver?: unknown; routes?: unknown };
+    if (typeof rt.receiver === 'string') routed.add(rt.receiver);
+    if (Array.isArray(rt.routes)) for (const child of rt.routes) walk(child, depth + 1);
+  };
+  walk(cfg.route, 0);
+  const routedWithIntegrations = [...routed]
+    .filter((name) => (integrations.get(name) ?? 0) > 0 && name.toLowerCase() !== 'watchdog')
+    .sort();
+  return { routedWithIntegrations };
+}
+
+async function readRoutingConfig(): Promise<RoutingConfig | null> {
+  try {
+    const status = await readAlertmanager<{ config?: { original?: unknown } }>('status');
+    return routingFromConfig(status?.config?.original);
+  } catch {
+    // The receivers read decides "Could not check"; this one only refines it.
+    return null;
+  }
+}
+
 const notificationRouting: ReadinessGate = {
   id: 'notification-routing',
   title: 'Alert Notification Routing',
-  description: 'Alertmanager has at least one receiver configured beyond the default',
+  description: 'Alerts are routed to at least one receiver that notifies someone (Slack, PagerDuty, email, webhook…)',
   whyItMatters: 'Without notification routing, alerts fire silently. Teams are not notified of critical issues until they discover them manually.',
   category: 'operations',
   priority: 'recommended',
@@ -527,16 +592,38 @@ const notificationRouting: ReadinessGate = {
       // HTTPS server." 400 — and even with the scheme prefix, that proxy
       // path does not forward the caller's bearer token to the backend, so
       // Alertmanager's kube-rbac-proxy sidecar then rejects it with 401.
-      const receivers = await readAlertmanager<any[]>('receivers');
-      const nonDefault = (receivers || []).filter((r: any) => r.name !== 'Default' && r.name !== 'null' && r.name !== 'watchdog');
-      return {
-        status: nonDefault.length > 0 ? 'passed' : 'needs_attention',
-        detail: nonDefault.length > 0 ? `${nonDefault.length} receiver${nonDefault.length !== 1 ? 's' : ''} configured` : 'Only default receiver — alerts are not routed to any team',
-        // Routing lives in the alertmanager.yaml key of this Secret; Pulse has
-        // no receiver/route editor, and Silences only mute alerts, so the
-        // action opens the config where receivers are actually added.
+      const receivers = await readAlertmanager<Array<{ name?: unknown }>>('receivers');
+      const names = (receivers || []).map((r) => (typeof r?.name === 'string' ? r.name : '')).filter(Boolean);
+      const custom = names.filter((n) => !OPENSHIFT_DEFAULT_RECEIVERS.has(n.toLowerCase()));
+      // Routing lives in the alertmanager.yaml key of this Secret; Pulse has
+      // no receiver/route editor, and Silences only mute alerts, so the
+      // action opens the config where receivers are actually added.
+      const fix = {
         fixGuidance: 'Add receivers (PagerDuty, Slack, email) and a route to them in the alertmanager.yaml key of Secret alertmanager-main in openshift-monitoring.',
         action: { label: 'Edit Alertmanager config', path: ALERTMANAGER_CONFIG_PATH },
+      };
+      // The receivers API lists names only; the loaded configuration says
+      // whether a receiver alerts are routed to has an integration at all.
+      const routing = await readRoutingConfig();
+      if (routing) {
+        const n = routing.routedWithIntegrations.length;
+        return n > 0
+          ? { status: 'passed', detail: `Alerts are routed to ${n} receiver${n !== 1 ? 's' : ''} with an integration: ${routing.routedWithIntegrations.join(', ')}`, ...fix }
+          : { status: 'needs_attention', detail: 'No receiver that alerts are routed to has an integration (Slack, PagerDuty, email, webhook…), so alerts are not sent anywhere', ...fix };
+      }
+      if (custom.length > 0) {
+        return {
+          status: 'passed',
+          detail: `${custom.length} custom receiver${custom.length !== 1 ? 's' : ''} found (${custom.join(', ')}); the configuration could not be read to confirm alerts are routed to ${custom.length !== 1 ? 'them' : 'it'}`,
+          ...fix,
+        };
+      }
+      // Only OpenShift's defaults, and nothing says whether they were given
+      // an integration (the console's Alertmanager page edits them in place).
+      return {
+        status: 'not_started',
+        detail: `Could not check: only OpenShift's default receivers (${names.join(', ') || 'none'}), and the configuration could not be read to tell whether they notify anyone. On a new cluster they do not.`,
+        ...fix,
       };
     } catch (err) {
       // Could not check — say why (forbidden, proxy missing, …), never a verdict.

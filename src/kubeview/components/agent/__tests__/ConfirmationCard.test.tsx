@@ -228,3 +228,48 @@ describe('ConfirmationCard', () => {
     expect(onConfirm).toHaveBeenCalledExactlyOnceWith(true);
   });
 });
+
+describe('create_network_policy (pulse-agent#248: router and DNS stay reachable unless strict)', () => {
+  const netpol = (input: Record<string, unknown>) => ({ tool: 'create_network_policy', input: { namespace: 'shop', ...input } });
+
+  it('default ingress deny says Routes keep working and what is denied', () => {
+    render(<ConfirmationCard confirm={netpol({ policy_type: 'deny-all-ingress' })} onConfirm={vi.fn()} />);
+    expect(screen.getByText(/Ingress is denied except from the OpenShift router, so Routes keep working/)).toBeTruthy();
+    expect(screen.getByText(/Egress is not restricted, so DNS and outbound calls keep working/)).toBeTruthy();
+    expect(screen.getByText('MEDIUM RISK')).toBeTruthy();
+    expect(screen.getByText(/Create deny-all-ingress NetworkPolicy "default-deny-ingress" in shop/)).toBeTruthy();
+    expect(screen.queryByText(/Warning: strict/)).toBeNull();
+  });
+
+  it('default deny-all keeps DNS and the router, and names the -allow-dns policy', () => {
+    render(<ConfirmationCard confirm={netpol({ policy_type: 'deny-all' })} onConfirm={vi.fn()} />);
+    expect(screen.getByText(/Egress is denied except DNS to openshift-dns \(UDP\/TCP 53 and 5353\)/)).toBeTruthy();
+    expect(screen.getByText(/Routes keep working/)).toBeTruthy();
+    expect(screen.getByText(/"default-deny-all-allow-dns"/)).toBeTruthy();
+  });
+
+  it('strict deny-all warns first that every Route and all DNS break, as HIGH risk with no keyboard approval', () => {
+    const onConfirm = vi.fn();
+    render(<ConfirmationCard confirm={netpol({ policy_type: 'deny-all', strict: true })} onConfirm={onConfirm} />);
+    const impact = screen.getByText(/^Warning: strict mode\. This breaks every Route and all DNS lookups in shop\./);
+    expect(impact.textContent).toMatch(/including the OpenShift router: every Route in the namespace stops working/);
+    expect(impact.textContent).toMatch(/All egress is denied, including DNS: no name lookups resolve/);
+    expect(screen.getByText('HIGH RISK')).toBeTruthy();
+    expect(screen.getByText(/deny-all \(strict\) NetworkPolicy "default-deny-all"/)).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'y' });
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('strict egress-only names only DNS as broken; a string "true" counts as strict', () => {
+    render(<ConfirmationCard confirm={netpol({ policy_type: 'deny-all-egress', strict: 'true' })} onConfirm={vi.fn()} />);
+    expect(screen.getByText(/^Warning: strict mode\. This breaks all DNS lookups in shop\./)).toBeTruthy();
+    expect(screen.queryByText(/every Route/)).toBeNull();
+  });
+
+  it('an explicit strict: false is the safe default', () => {
+    render(<ConfirmationCard confirm={netpol({ policy_type: 'deny-all-ingress', strict: false, name: 'lockdown' })} onConfirm={vi.fn()} />);
+    expect(screen.getByText(/Routes keep working/)).toBeTruthy();
+    expect(screen.getAllByText(/"lockdown"/).length).toBeGreaterThan(0);
+  });
+});
