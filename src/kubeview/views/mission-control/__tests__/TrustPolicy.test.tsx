@@ -41,14 +41,16 @@ describe('the trust page describes the agent, not the browser', () => {
 
   it('names the gap when the two disagree', () => {
     renderAt(2);
-    expect(screen.getByText(/agent is running at/)).toBeDefined();
-    expect(screen.getByText(/Propose \(2\)/)).toBeDefined();
+    const note = screen.getByTestId('trust-mismatch');
+    expect(note.textContent).toMatch(/agent is running at/);
+    expect(note.textContent).toMatch(/Propose \(2\)/);
   });
 
   it('stays quiet when they agree', () => {
     useTrustStore.setState({ trustLevel: 2 });
     renderAt(2);
     expect(screen.queryByText(/agent is running at/)).toBeNull();
+    expect(screen.queryByTestId('trust-mismatch')).toBeNull();
   });
 
   it('falls back to the stored level against an agent that does not report one', () => {
@@ -139,5 +141,34 @@ describe('the auto-fix kill switch while its state is unknown', () => {
   it('once known, offers the real switch', () => {
     renderWith({ autofixPaused: false });
     expect(screen.getByRole('button', { name: 'Pause Auto-Fix (Emergency Kill Switch)' })).toBeDefined();
+  });
+});
+
+describe('the browser/server trust mismatch is a callout, with the kill switch state', () => {
+  beforeEach(() => { useTrustStore.setState({ trustLevel: 1, autoFixCategories: [], communicationStyle: 'detailed' }); });
+  afterEach(cleanup);
+  const renderWith = (autofixPaused: boolean | undefined, pauseStateError?: Error) => render(
+    <TrustPolicy maxTrustLevel={4} effectiveTrustLevel={3} scannerCount={27} fixSummary={null} autofixPaused={autofixPaused} pauseStateError={pauseStateError} />,
+  );
+
+  it('heads the card, before the kill switch, and says the switch is not engaged', () => {
+    const { container } = renderWith(false);
+    const note = screen.getByTestId('trust-mismatch');
+    expect(note.getAttribute('role')).toBe('note');
+    expect(note.textContent).toMatch(/The agent is running at .* \(3\), set on the server/);
+    expect(note.textContent).toMatch(/This browser has .* \(1\) selected/);
+    expect(screen.getByTestId('trust-mismatch-pause').textContent).toMatch(/not engaged/);
+    const killSwitch = screen.getByRole('button', { name: /Emergency Kill Switch/ });
+    // The callout comes first in the card.
+    expect(note.compareDocumentPosition(killSwitch) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector('[data-testid="trust-mismatch"]')).toBe(note);
+  });
+
+  it('says auto-fix is paused when it is, and unknown when the pause state could not be read', () => {
+    renderWith(true);
+    expect(screen.getByTestId('trust-mismatch-pause').textContent).toMatch(/auto-fix is paused/);
+    cleanup();
+    renderWith(undefined, new Error('503'));
+    expect(screen.getByTestId('trust-mismatch-pause').textContent).toMatch(/unknown/);
   });
 });

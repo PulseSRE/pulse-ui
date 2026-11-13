@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Search, Ship, Loader2, Plus, Trash2, RefreshCw } from 'lucide-react';
@@ -57,8 +57,37 @@ interface HelmRepo {
   name: string;
   url: string;
   isDefault: boolean;
-  isReady: boolean;
-  chartCount: number;
+  /** The CRD's Ready condition, when it reports one. OpenShift often sets none, so absence is not "not ready". */
+  readyCondition?: 'True' | 'False';
+}
+
+/** What a repository row shows: derived from the index fetch, not from render-time mutation. */
+export type RepoRowState =
+  | { kind: 'loading' }
+  | { kind: 'failed'; reason: string }
+  | { kind: 'loaded'; chartCount: number }
+  | { kind: 'not-ready'; chartCount: number };
+
+/**
+ * The state of each repository row. A repo whose index loaded is never "not
+ * ready": only an explicit Ready=False with no charts from it reads that way.
+ */
+export function repoRowStates(
+  repos: Array<Pick<HelmRepo, 'name' | 'readyCondition'>>,
+  index: { charts: Array<Pick<HelmChart, 'repoName'>>; failures: Array<{ repo: string; reason: string }> } | undefined,
+): Map<string, RepoRowState> {
+  const out = new Map<string, RepoRowState>();
+  const counts = new Map<string, number>();
+  for (const c of index?.charts ?? []) if (c.repoName) counts.set(c.repoName, (counts.get(c.repoName) ?? 0) + 1);
+  for (const repo of repos) {
+    if (!index) { out.set(repo.name, { kind: 'loading' }); continue; }
+    const failure = index.failures.find((f) => f.repo === repo.name);
+    const chartCount = counts.get(repo.name) ?? 0;
+    if (failure) out.set(repo.name, { kind: 'failed', reason: failure.reason });
+    else if (repo.readyCondition === 'False' && chartCount === 0) out.set(repo.name, { kind: 'not-ready', chartCount });
+    else out.set(repo.name, { kind: 'loaded', chartCount });
+  }
+  return out;
 }
 
 export function parseHelmIndex(text: string, repoName: string, repoUrl: string): HelmChart[] {
@@ -166,7 +195,7 @@ export function HelmTab() {
   // A 404 means the HelmChartRepository API is not served (no cluster repos).
   // Anything else is an error, shown above the list: a 403 used to read as an
   // empty list, leaving only the default repo with no word why.
-  const { data: chartRepoCRDs = [], error: reposError, refetch: refetchRepos } = useQuery({
+  const { data: chartRepoCRDs = [], error: reposError, refetch: refetchRepos, isPending: reposPending } = useQuery({
     queryKey: ['helm', 'repos', clusterId],
     queryFn: async () => {
       const res = await k8sFetch(clusterId, '/apis/helm.openshift.io/v1beta1/helmchartrepositories');
@@ -179,23 +208,31 @@ export function HelmTab() {
   });
 
   // Build repo list: cluster repos + default fallback
-  const repos: HelmRepo[] = chartRepoCRDs.map((r) => ({
-    name: r.metadata?.name || '',
-    url: r.spec?.connectionConfig?.url || '',
-    isDefault: false,
-    isReady: (r.status?.conditions || []).some((c) => c.type === 'Ready' && c.status === 'True'),
-    chartCount: 0,
-  }));
-
-  const hasDefaultRepo = repos.some(r => r.url === DEFAULT_REPO_URL || r.url === DEFAULT_REPO_URL + '/');
-  if (!hasDefaultRepo) {
-    repos.unshift({ name: 'openshift-charts', url: DEFAULT_REPO_URL, isDefault: true, isReady: true, chartCount: 0 });
-  }
+  const repos: HelmRepo[] = useMemo(() => {
+    const list: HelmRepo[] = chartRepoCRDs.map((r) => {
+      const ready = (r.status?.conditions || []).find((c) => c.type === 'Ready');
+      return {
+        name: r.metadata?.name || '',
+        url: r.spec?.connectionConfig?.url || '',
+        isDefault: false,
+        readyCondition: ready?.status === 'True' || ready?.status === 'False' ? ready.status : undefined,
+      };
+    });
+    if (!list.some(r => r.url === DEFAULT_REPO_URL || r.url === DEFAULT_REPO_URL + '/')) {
+      list.unshift({ name: 'openshift-charts', url: DEFAULT_REPO_URL, isDefault: true });
+    }
+    return list;
+  }, [chartRepoCRDs]);
 
   // Fetch charts from all repos
   // Each repo's index that could not be fetched is recorded and shown, not skipped.
-  const { data: chartIndex, isLoading: chartsLoading } = useQuery<{ charts: HelmChart[]; failures: Array<{ repo: string; reason: string }> }>({
-    queryKey: ['helm', 'charts', 'index', clusterId, repos.map(r => r.url).join(',')],
+  // The key names each repo as well as its URL: charts are tagged with the repo
+  // name, and a key of URLs alone let the default "openshift-charts" result be
+  // reused for a cluster repo of the same URL, so its row counted 0 charts.
+  // The fetch waits for the repository list, so the multi-MB index is fetched
+  // once, not once for the default repo and again when cluster repos arrive.
+  const { data: chartIndex, isPending: chartsLoading, isFetching: chartsFetching } = useQuery<{ charts: HelmChart[]; failures: Array<{ repo: string; reason: string }> }>({
+    queryKey: ['helm', 'charts', 'index', clusterId, repos.map(r => `${r.name}=${r.url}`).join(',')],
     queryFn: async () => {
       const allCharts: HelmChart[] = [];
       const failures: Array<{ repo: string; reason: string }> = [];
@@ -242,17 +279,14 @@ export function HelmTab() {
       return { charts: allCharts, failures };
     },
     staleTime: 300000,
-    enabled: repos.length > 0,
+    // Kept across tab switches for 30 minutes: re-downloading the index on every visit read as "loads no data".
+    gcTime: 1_800_000,
+    enabled: !reposPending && repos.length > 0,
   });
 
-  const chartCatalog = chartIndex?.charts ?? [];
+  const chartCatalog = useMemo(() => chartIndex?.charts ?? [], [chartIndex]);
   const indexFailures = chartIndex?.failures ?? [];
-  const failureFor = (repoName: string) => indexFailures.find((f) => f.repo === repoName);
-
-  // Update repo chart counts
-  for (const repo of repos) {
-    repo.chartCount = chartCatalog.filter(c => c.repoName === repo.name).length;
-  }
+  const rowStates = useMemo(() => repoRowStates(repos, chartIndex), [repos, chartIndex]);
 
   const filteredCharts = search
     ? chartCatalog.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.description.toLowerCase().includes(search.toLowerCase()))
@@ -425,10 +459,15 @@ export function HelmTab() {
 
         {/* Repo list */}
         <div className="space-y-2">
-          {repos.map((repo) => (
-            <div key={repo.name} className="flex items-center justify-between px-3 py-2 bg-slate-800/30 rounded-sm border border-slate-800">
+          {repos.map((repo) => {
+            const state = rowStates.get(repo.name) ?? { kind: 'loading' as const };
+            return (
+            <div key={repo.name} className="flex items-center justify-between px-3 py-2 bg-slate-800/30 rounded-sm border border-slate-800" data-testid={`helm-repo-${repo.name}`}>
               <div className="flex items-center gap-3 min-w-0">
-                <div className={cn('w-2 h-2 rounded-full shrink-0', failureFor(repo.name) ? 'bg-red-500' : repo.isReady ? 'bg-green-500' : 'bg-amber-500')} />
+                {state.kind === 'loading'
+                  ? <Loader2 className="w-3 h-3 animate-spin text-slate-400 shrink-0" aria-label="Loading the repository index" />
+                  : <div className={cn('w-2 h-2 rounded-full shrink-0', state.kind === 'failed' ? 'bg-red-500' : state.kind === 'not-ready' ? 'bg-amber-500' : 'bg-green-500')}
+                      title={state.kind === 'failed' ? 'The index could not be fetched' : state.kind === 'not-ready' ? 'The repository reports Ready=False and no charts were loaded from it' : 'Index loaded'} />}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-slate-200">{repo.name}</span>
@@ -437,11 +476,14 @@ export function HelmTab() {
                     )}
                   </div>
                   <div className="text-xs text-faint font-mono truncate">{repo.url}</div>
-                  {failureFor(repo.name) && <div className="text-xs text-red-300">{failureFor(repo.name)!.reason}</div>}
+                  {state.kind === 'failed' && <div className="text-xs text-red-300">{state.reason}</div>}
+                  {state.kind === 'not-ready' && <div className="text-xs text-amber-300">The repository reports it is not ready</div>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-faint">{failureFor(repo.name) ? '\u2014 charts' : `${repo.chartCount} chart${repo.chartCount !== 1 ? 's' : ''}`}</span>
+                <span className="text-xs text-faint" data-testid={`helm-repo-count-${repo.name}`}>
+                  {state.kind === 'loading' ? 'Loading index\u2026' : state.kind === 'failed' ? '\u2014 charts' : `${state.chartCount} chart${state.chartCount !== 1 ? 's' : ''}`}
+                </span>
                 {!repo.isDefault && (
                   <button onClick={() => setDeleteRepo(repo.name)}
                     className="p-1 text-faint hover:text-red-400 rounded-sm hover:bg-slate-700 transition-colors" title="Remove repository">
@@ -450,12 +492,14 @@ export function HelmTab() {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
 
       <HelmReleases
         nsFilter={nsFilter}
+        chartsPending={chartsLoading}
         charts={chartCatalog.map((c) => ({ name: c.name, repoName: c.repoName, repoUrl: c.repoUrl, versions: c.versions, urls: c.urls }))}
       />
 
@@ -530,13 +574,13 @@ export function HelmTab() {
         </div>
         <button onClick={() => { queryClient.invalidateQueries({ queryKey: ['helm', 'charts'] }); }}
           className="flex items-center gap-1 text-xs text-faint hover:text-slate-300 transition-colors">
-          <RefreshCw className="w-3 h-3" /> Refresh
+          <RefreshCw className={cn('w-3 h-3', chartsFetching && 'animate-spin')} /> Refresh
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {chartsLoading && (
           <div className="col-span-full text-center py-8 text-sm text-faint flex items-center justify-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" /> Loading charts from repositories...
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading chart indexes from {repos.length} repositor{repos.length === 1 ? 'y' : 'ies'} (the index can be several MB; the first load takes a few seconds)…
           </div>
         )}
         {!chartsLoading && filteredCharts.length === 0 && (

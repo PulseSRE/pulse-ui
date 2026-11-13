@@ -421,3 +421,52 @@ describe('Admin › Updates on OpenShift 5 (live cluster: 5.0.1 on fast-5.0)', (
     expect(screen.getByTestId('readiness-removed-apis').textContent).toMatch(/Kubernetes version could not be read/);
   });
 });
+
+describe('Software › Helm with a cluster repository for the default URL', () => {
+  it('counts its charts (no stale "0 charts"), shows no amber "not ready" dot, and fetches the index once after a loading state', async () => {
+    let releaseIndex: () => void = () => {};
+    const indexGate = new Promise<void>((r) => { releaseIndex = r; });
+    const fetchMock = mockFetchRoutes({
+      // OpenShift's HelmChartRepository usually carries no Ready condition at all.
+      '/apis/helm.openshift.io/v1beta1/helmchartrepositories': list([{ metadata: { name: 'openshift-helm-charts', uid: 'r1' }, spec: { connectionConfig: { url: 'https://charts.openshift.io' } } }]),
+      'index.yaml': { body: INDEX_YAML },
+    });
+    const realFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input).includes('index.yaml')) await indexGate;
+      return realFetch(input, init);
+    });
+    renderWithClient(<HelmTab />, { route: '/software?tab=helm' });
+    const count = await screen.findByTestId('helm-repo-count-openshift-helm-charts');
+    expect(count.textContent).toBe('Loading index…');
+    expect(screen.getByLabelText('Loading the repository index')).toBeTruthy();
+    expect(screen.getByText(/Loading chart indexes from 1 repository/)).toBeTruthy();
+    expect(screen.queryByText('openshift-charts')).toBeNull();
+    releaseIndex();
+    await waitFor(() => expect(screen.getByText('redis')).toBeTruthy());
+    expect(screen.getByTestId('helm-repo-count-openshift-helm-charts').textContent).toBe('1 chart');
+    const row = screen.getByTestId('helm-repo-openshift-helm-charts');
+    expect(row.querySelector('.bg-amber-500')).toBeNull();
+    expect(row.querySelector('.bg-green-500')).toBeTruthy();
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('index.yaml'))).toHaveLength(1);
+  });
+});
+
+import { repoRowStates } from '../views/create/HelmTab';
+
+describe('repoRowStates', () => {
+  const repos = [{ name: 'a' }, { name: 'b', readyCondition: 'False' as const }, { name: 'c', readyCondition: 'False' as const }, { name: 'd' }];
+  it('is loading for every repo until the index arrives', () => {
+    expect([...repoRowStates(repos, undefined).values()].every((s) => s.kind === 'loading')).toBe(true);
+  });
+  it('derives counts from the index; Ready=False is shown only when nothing loaded from that repo; failures win', () => {
+    const states = repoRowStates(repos, {
+      charts: [{ repoName: 'a' }, { repoName: 'a' }, { repoName: 'c' }],
+      failures: [{ repo: 'd', reason: 'index.yaml returned 503' }],
+    });
+    expect(states.get('a')).toEqual({ kind: 'loaded', chartCount: 2 });
+    expect(states.get('b')).toEqual({ kind: 'not-ready', chartCount: 0 });
+    expect(states.get('c')).toEqual({ kind: 'loaded', chartCount: 1 });
+    expect(states.get('d')).toEqual({ kind: 'failed', reason: 'index.yaml returned 503' });
+  });
+});

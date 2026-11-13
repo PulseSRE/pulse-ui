@@ -163,11 +163,22 @@ metadata:
     expect(h.writes().some((w) => w.path.endsWith('/secrets') && w.body.metadata.generateName === 'helm-values-shop-')).toBe(false);
   });
 
+  it('while the repository indexes load, the row says so instead of "not found", and Upgrade waits', async () => {
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} chartsPending />);
+    await screen.findByTestId('helm-release-shop');
+    expect(screen.getByTestId('helm-repo-pending-shop').textContent).toBe('Checking chart repositories…');
+    expect(screen.queryByTestId('helm-no-repo-shop')).toBeNull();
+    const upgrade = screen.getByRole('button', { name: 'Upgrade shop' }) as HTMLButtonElement;
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Edit values of shop' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(upgrade.disabled).toBe(true);
+    expect(upgrade.title).toMatch(/Checking the configured chart repositories/);
+  });
+
   it('without a repository, Upgrade is unavailable and says why; Edit values upgrades with the chart stored in the release', async () => {
     h.state.denied.add('get pods/log');
     h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
     await screen.findByTestId('helm-release-shop');
-    expect(screen.getByTestId('helm-no-repo-shop').textContent).toBe('No chart repository configured for upgrades');
+    expect(screen.getByTestId('helm-no-repo-shop').textContent).toBe('Chart nginx not found in the configured repositories, so it cannot be upgraded from here');
     // Once the Job permission resolves, Edit values is enabled but Upgrade stays disabled with the reason.
     await waitFor(() => expect((screen.getByRole('button', { name: 'Edit values of shop' }) as HTMLButtonElement).disabled).toBe(false));
     const upgrade = screen.getByRole('button', { name: 'Upgrade shop' }) as HTMLButtonElement;

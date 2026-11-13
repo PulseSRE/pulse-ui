@@ -125,6 +125,30 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
   return (
     <Card>
       <div className="p-5 space-y-5">
+        {/* What the agent is really running at, first: the browser selector
+            below does not change it, and as fine print under the summary it
+            was easy to read the browser's level as the agent's. */}
+        {runningElsewhere !== null && (
+          <div role="note" data-testid="trust-mismatch" className="flex items-start gap-2.5 rounded-lg border border-amber-700/60 bg-amber-950/30 px-4 py-3">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" aria-hidden="true" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-200">
+                The agent is running at {TRUST_LABELS[runningElsewhere as TrustLevel]} ({runningElsewhere}), set on the server
+              </p>
+              <p className="text-xs text-amber-100/80">
+                This browser has {TRUST_LABELS[trustLevel]} ({trustLevel}) selected, but the agent is
+                running at {TRUST_LABELS[runningElsewhere as TrustLevel]} ({runningElsewhere}), set on
+                the server. The browser preference below only affects chat confirmations; the description below is the agent's.
+              </p>
+              <p className="text-xs text-amber-100/80" data-testid="trust-mismatch-pause">
+                Kill switch: {autofixPaused === undefined
+                  ? (pauseStateError !== undefined ? 'unknown (the pause state could not be read)' : 'checking…')
+                  : autofixPaused ? 'auto-fix is paused; the monitor applies no fixes until resumed.' : 'not engaged; the monitor applies fixes at the server level.'}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Emergency Pause */}
         {(effectiveTrustLevel ?? maxTrustLevel) >= 2 && (
           autofixPaused === undefined ? (
@@ -202,13 +226,6 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
 
         {/* Policy Summary */}
         <p className="text-sm text-slate-300 leading-relaxed">{policySummary}</p>
-        {runningElsewhere !== null && (
-          <p className="mt-2 text-xs text-amber-400/90">
-            This browser has {TRUST_LABELS[trustLevel]} ({trustLevel}) selected, but the agent is
-            running at {TRUST_LABELS[runningElsewhere as TrustLevel]} ({runningElsewhere}), set on
-            the server. The description above is the agent's.
-          </p>
-        )}
 
         {/* Impact Preview (on hover) */}
         {impactPreview && (

@@ -17,10 +17,16 @@ export interface FixHistorySummary {
   completed: number;
   failed: number;
   rolled_back: number;
+  /**
+   * Since pulse-agent#258: fixes verification saw hold / total. Older agents:
+   * completed (applied) / total. Tell them apart by `applied_rate`.
+   */
   success_rate: number;
+  /** Applied (the write went through, held or not) / total. Present from pulse-agent#258 on. */
+  applied_rate?: number;
   rollback_rate: number;
   avg_resolution_ms: number;
-  by_category: Array<{ category: string; count: number; success_count: number; auto_fixed: number; confirmation_required: number }>;
+  by_category: Array<{ category: string; count: number; success_count: number; applied_count?: number; auto_fixed: number; confirmation_required: number }>;
   trend: { current_week: number; previous_week: number; delta: number };
   verification: {
     resolved: number;
