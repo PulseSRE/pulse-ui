@@ -274,7 +274,7 @@ describe('AgentHealth', () => {
         fixSummary={{ total_actions: 5, completed: 4, failed: 0, rolled_back: 1 } as never}
         onOpenScannerDrawer={() => {}} onOpenEvalDrawer={() => {}} onOpenMemoryDrawer={() => {}} />,
     );
-    const line = screen.getByText('4 fixed').parentElement!;
+    const line = screen.getAllByText('4 applied')[0].parentElement!;
     expect(line.textContent).toMatch(/^5 fixes/);
     expect(line.textContent).not.toMatch(/findings/);
   });

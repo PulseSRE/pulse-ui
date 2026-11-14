@@ -1,8 +1,11 @@
+import type React from 'react';
 import { CheckCircle2, XCircle, Shield, ChevronRight, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import type { FixHistorySummary, ScannerCoverage, ConfidenceCalibration, CostStats, ReadinessSummary } from '../../engine/analyticsApi';
 import type { AgentEvalStatus } from '../../engine/evalStatus';
+import { fixActivityLink, fixOutcomeFigures } from '../../engine/fixOutcomes';
+import { useNavigateTab } from '../../hooks/useNavigateTab';
 
 function gateColor(passed: boolean | undefined): string {
   if (passed === true) return 'text-emerald-400';
@@ -155,16 +158,13 @@ function OutcomesCard({
         {fixSummary && (
           <div className="text-sm text-slate-200">
             <span className="font-semibold">{fixSummary.total_actions}</span> fixes &middot;{' '}
-            <span className="text-emerald-400">{fixSummary.completed} fixed</span> &middot;{' '}
+            {/* `completed` means the write went through, not that it fixed anything. */}
+            <span className="text-emerald-400">{fixSummary.completed} applied</span> &middot;{' '}
             <span className="text-amber-400">{fixSummary.rolled_back} rolled back</span>
           </div>
         )}
 
-        {fixSummary && fixSummary.total_actions > 0 && (
-          <div className="text-xs text-slate-400">
-            Auto-fix success: <span className="text-slate-200">{Math.round(fixSummary.success_rate * 100)}%</span>
-          </div>
-        )}
+        {fixSummary && fixSummary.total_actions > 0 && <HeldFigure summary={fixSummary} />}
 
         {fixSummary && fixSummary.avg_resolution_ms > 0 && (
           <div className="text-xs text-slate-400">
@@ -229,6 +229,55 @@ function OutcomesCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * "Fixes that held": since pulse-agent#258 the summary's success figures count
+ * fixes verification saw hold, so they are labelled that way, with applied,
+ * held, not held and failed side by side. An older agent's figure means
+ * "applied" and is labelled so.
+ */
+function HeldFigure({ summary }: { summary: FixHistorySummary }) {
+  const go = useNavigateTab();
+  const f = fixOutcomeFigures(summary);
+  const open = (status?: 'completed' | 'failed') => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    go(fixActivityLink(status), 'Activity');
+  };
+  return (
+    <div className="space-y-1" data-testid="fix-held-figure">
+      <div className="text-xs text-slate-400">
+        {f.label}:{' '}
+        <span className="text-slate-200 font-medium">{f.pct !== null ? `${f.pct}%` : '\u2014'}</span>{' '}
+        <span className="text-faint">({f.basis})</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+        <button type="button" onClick={open('completed')} className="text-emerald-400 hover:underline" data-testid="fix-applied-link">
+          {f.applied} applied
+        </button>
+        {f.held !== null && (
+          <>
+            <span className="text-slate-600">&middot;</span>
+            <span className="text-emerald-300" title="Applied fixes that verification saw hold">{f.held} held</span>
+          </>
+        )}
+        {f.notHeld !== null && f.notHeld > 0 && (
+          <>
+            <span className="text-slate-600">&middot;</span>
+            <span className="text-amber-400" title="Applied, but the condition was still there or came back">{f.notHeld} did not hold</span>
+          </>
+        )}
+        {f.failed > 0 && (
+          <>
+            <span className="text-slate-600">&middot;</span>
+            <button type="button" onClick={open('failed')} className="text-red-400 hover:underline" data-testid="fix-failed-link">
+              {f.failed} failed
+            </button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

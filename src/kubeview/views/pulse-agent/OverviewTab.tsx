@@ -14,6 +14,7 @@ import {
   type FixHistorySummary,
 } from '../../engine/analyticsApi';
 import { fetchFixHistory, actionCategoryLabel, type ActionRecord } from '../../engine/fixHistory';
+import { fixActivityLink } from '../../engine/fixOutcomes';
 import { TrustPolicy } from '../mission-control/TrustPolicy';
 import { classifyAgentLink } from '../../engine/agentLinks';
 import { ScannerDrawer } from '../mission-control/ScannerDrawer';
@@ -137,9 +138,8 @@ export function verifiedHeldOf(summary: FixHistorySummary): number | null {
   return typeof resolved === 'number' ? resolved : null;
 }
 
-/** Inbox › Activity filtered to fixes with this status. */
-export const fixActivityLink = (status?: 'failed' | 'rolled_back' | 'completed') =>
-  status ? `/inbox?tab=activity&fixStatus=${status}` : '/inbox?tab=activity';
+/** Inbox › Activity filtered to fixes with this status (shared with Mission Control). */
+export { fixActivityLink };
 
 function StatusSentence({
   isDegraded, loading, unreadable, onRetry, scannerCount, totalFixes, fixedCount, verifiedHeld, failedCount, rolledBackCount, onScannerClick,
