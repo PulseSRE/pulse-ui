@@ -14,7 +14,7 @@
 <body>
 <header class="wrap"><nav class="sites" aria-label="Pulse projects">
 <a class="mark" href="https://github.com/PulseSRE"><svg viewBox="0 0 68 36" aria-hidden="true"><path d="M0 20 H18 L22 24 L28 3 L34 32 L38 20 H50 L54 15 L58 20 H68" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/></svg><span>Pulse</span></a>
-<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.38.1</span>
+<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.39.0</span>
 </nav></header>
 <main>
 <section class="hero wrap" aria-labelledby="title">
@@ -127,6 +127,15 @@
 <div class="wrap">
 <h2 id="new">What's new</h2>
 <div class="release">
+<p class="when"><strong>v2.39.0</strong>14 November 2026<br>Pairs with agent and operator v2.39.0: all three now share one version</p>
+<ul>
+<li style="--c:var(--trace)"><b>Ask Pulse from any resource page, starting from what Pulse already found.</b> <span>Every resource page attaches the resource and its open finding to chat, and the agent starts from that finding's investigation instead of rediscovering it.</span></li>
+<li style="--c:var(--ok)"><b>Fixes from chat show the exact change first.</b> <span>Workload changes, access grants and revokes, and "restart everything that uses this ConfigMap" each confirm with the dry-run diff and every workload affected.</span></li>
+<li style="--c:var(--ask)"><b>Operator updates waiting for approval, in one list.</b> <span>Operators › Needs approval shows every pending update with the version it replaces, and approves it with your own permissions.</span></li>
+<li style="--c:var(--ink)"><b>Plainer numbers.</b> <span>Mission Control counts fixes that held rather than fixes attempted; Inbox items can be silenced in one step; Updates reads correctly on OpenShift 5.</span></li>
+</ul>
+</div>
+<div class="release">
 <p class="when"><strong>v2.38.1</strong>12 November 2026<br>Pairs with agent v2.38.1 and operator v0.14.0</p>
 <ul>
 <li style="--c:var(--ink)"><b>No UI changes.</b> <span>Released to keep the pair matched with agent v2.38.1, whose fix stops any write in a turn that asks to delete a pod in a protected namespace.</span></li>
@@ -188,7 +197,7 @@ pnpm verify     <span class="c"># type-check, lint, tests and build</span></code
 </section>
 </main>
 <footer><div class="wrap">
-<span>Pulse UI v2.38.1. MIT licensed.</span>
+<span>Pulse UI v2.39.0. MIT licensed.</span>
 <span><a href="https://github.com/PulseSRE/pulse-ui">Source</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/releases">Releases</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/blob/main/CHANGELOG.md">Changelog</a></span>
 </div></footer>
 </body>
