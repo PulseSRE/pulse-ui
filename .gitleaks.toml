@@ -1,0 +1,12 @@
+# gitleaks config for the Secret Scan workflow: the default rules, plus files
+# whose "secrets" are deliberate fakes.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures with fake credentials"
+paths = [
+  # Fake PEM headers ("-----BEGIN RSA PRIVATE KEY-----" with no key body) that
+  # check the Helm preview redacts them.
+  '''src/kubeview/views/create/__tests__/helmTemplateRedaction\.test\.ts''',
+]

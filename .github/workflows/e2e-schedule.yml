@@ -7,6 +7,11 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# The built-in GITHUB_TOKEN only reads the repository. A job that needs more
+# says so in its own permissions block.
+permissions:
+  contents: read
+
 jobs:
   e2e:
     name: E2E Tests
@@ -23,7 +28,7 @@ jobs:
           path: pulse-agent
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node
         uses: actions/setup-node@v7
